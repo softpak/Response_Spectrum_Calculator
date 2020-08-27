@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.cell.*?>
+
+<AnchorPane id="AnchorPane" prefHeight="400" prefWidth="800" xmlns:fx="http://javafx.com/fxml" fx:controller="softpak.gdms_fft.FX_FreeField_Controller">
+    <children>
+        <TableView fx:id="FreeField_Table" layoutX="5" layoutY="5" maxHeight="150" minWidth="790">
+            <columns>
+                <TableColumn fx:id="StationName_Col" text="Station" prefWidth="120">
+                    <cellValueFactory><PropertyValueFactory property="StationName" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="Vs30_Col" text="Vs30(M/sec)" prefWidth="90">
+                    <cellValueFactory><PropertyValueFactory property="Vs30" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="GroundLevel_Col" text="Ground Level(M)" prefWidth="120">
+                    <cellValueFactory><PropertyValueFactory property="Ground_Level" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="Z10_Col" text="Z1.0" prefWidth="90">
+                    <cellValueFactory><PropertyValueFactory property="Z10" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="Kappa_Col" text="Kappa" prefWidth="90">
+                    <cellValueFactory><PropertyValueFactory property="Kappa" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="Longitude_Col" text="Longitude" prefWidth="90">
+                    <cellValueFactory><PropertyValueFactory property="Longitude" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="Latitude_Col" text="Latitude" prefWidth="90">
+                    <cellValueFactory><PropertyValueFactory property="Latitude" />
+                    </cellValueFactory>
+                </TableColumn>
+            </columns>
+            <ContextMenu fx:id="ff_cont_menu">
+                <items>
+                    <MenuItem text="Del" onAction="#ff_del_MenuAction"/>
+                </items>
+            </ContextMenu>
+        </TableView>
+        
+        
+        <Button fx:id="import_data_button" layoutX="126" layoutY="160" text="Import" onAction="#import_data_ButtonAction"/>
+        
+        
+        <Label fx:id="label" layoutX="126" layoutY="120" minHeight="16" minWidth="69"/>
+        
+        <TextArea fx:id="logs" layoutX="5" layoutY="185" prefHeight="200" prefWidth="790" wrapText="true" />
+        
+        <Label fx:id="label_status" layoutX="10" layoutY="385" text="idle" minHeight="15" minWidth="790" style=" " />
+    </children>
+</AnchorPane>

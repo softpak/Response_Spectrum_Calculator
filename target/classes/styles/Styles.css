@@ -1,0 +1,13 @@
+.button {
+    -fx-font-weight: bold;
+}
+.menu-bar{
+    -fx-use-system-menu-bar:true;
+    -fx-padding:0px;
+}
+.menu-item{
+    -fx-padding:5px 10px 5px 30px;
+}
+.menu-item:hover{
+
+}

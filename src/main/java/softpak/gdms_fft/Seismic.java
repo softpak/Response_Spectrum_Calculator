@@ -1,0 +1,123 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package softpak.gdms_fft;
+
+import java.io.Serializable;
+import java.util.Date;
+
+/**
+ *
+ * @author you
+ */
+public class Seismic implements Serializable {
+    private Date StartTime;
+    private Number Longitude;
+    private Number Latitude;
+    private Number depth_of_focus;      //km
+    private Number magnitude;           //ML
+    private Number data_num;
+    private Number predict_Vs30;
+    private String nearest_active_fault_name;//km
+    private Number nearest_active_fault;//km
+    private WGS84coord nearest_active_fault_coord;
+    
+    
+    //日期 震央經度 震央緯度 深度 芮氏規模 自由場資料筆數
+    public Seismic() {
+        
+    }
+    
+    public Seismic(Date StartTime, Number Longitude, Number Latitude,Number depth_of_focus, Number magnitude, Number data_num) {
+        this.StartTime = StartTime;
+        this.Longitude = Longitude;
+        this.Latitude = Latitude;
+        this.depth_of_focus = depth_of_focus;       //km
+        this.magnitude = magnitude;                 //ML
+        this.data_num = data_num;
+    }
+    
+    public void setNearestActiveFault_coord(WGS84coord nearest_active_fault_coord) {
+        this.nearest_active_fault_coord = nearest_active_fault_coord;
+    }
+    
+    public void setNearestActiveFault_dist(Number dist) {
+        this.nearest_active_fault = dist;
+    }
+    
+    public void setNearestActiveFault(String fault_name) {
+        this.nearest_active_fault_name = fault_name;
+    }
+    
+    public void setPredictVs30(Number Vs30) {
+        this.predict_Vs30 = Vs30;
+    }
+    
+    public void setStartTime(Date StartTime) {
+        this.StartTime = StartTime;
+    }
+    
+    public void setLongitude(Number Longitude) {
+        this.Longitude = Longitude;
+    }
+    
+    public void setLatitude(Number Latitude) {
+        this.Latitude = Latitude;
+    }
+    
+    public void setDepth_Of_Focus(Number depth_of_focus) {
+        this.depth_of_focus = depth_of_focus;
+    }
+    
+    public void setMagnitude(Number magnitude) {
+        this.magnitude = magnitude;
+    }
+    
+    public void setData_Num(Number data_num) {
+        this.data_num = data_num;
+    }
+    
+    //------------------------------------------------------------
+    
+    public WGS84coord getNearestActiveFault_coord() {
+        return this.nearest_active_fault_coord;
+    }
+    
+    public Number getNearestActiveFault_dist() {
+        return this.nearest_active_fault;
+    }
+    
+    public String getNearestActiveFault() {
+        return this.nearest_active_fault_name;
+    }
+    
+    public Number getPredictVs30() {
+        return this.predict_Vs30;
+    }
+    
+    public Date getStartTime() {
+        return this.StartTime;
+    }
+    
+    public Number getLongitude() {
+        return this.Longitude;
+    }
+    
+    public Number getLatitude() {
+        return this.Latitude;
+    }
+    
+    public Number getDepth_Of_Focus() {
+        return this.depth_of_focus;
+    }
+    
+    public Number getMagnitude() {
+        return this.magnitude;
+    }
+    
+    public Number getData_Num() {
+        return this.data_num;
+    }
+}

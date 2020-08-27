@@ -1,0 +1,7 @@
+D:\FreeField\By_event\2008_05_11_034200 AM\B0613100.RTE.txt has issues.
+D:\FreeField\By_event\2009_07_14_020502 AM\A0619400.RTE.txt has issues.
+D:\FreeField\By_event\2009_07_14_020502 AM\F0619400.RTE.txt has issues.
+D:\FreeField\By_event\2009_11_05_053257 PM\63230900.EVT.txt has issues.
+D:\FreeField\By_event\2009_12_19_090216 PM\A0635300.RTE.txt has issues.
+D:\FreeField\By_event\2009_12_19_090216 PM\F0635300.RTE.txt has issues.
+D:\FreeField\By_event\2010_11_21_083145 PM\F8232500.EVT.txt has issues.

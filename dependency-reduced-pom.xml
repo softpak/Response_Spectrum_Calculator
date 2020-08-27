@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>softpak</groupId>
+  <artifactId>GDMS_FFT</artifactId>
+  <name>GDMS_FFT</name>
+  <version>1.0-SNAPSHOT</version>
+  <description>--module-path C:\tools\javafx-sdk-11.0.2\lib
+--add-modules=javafx.controls
+--add-modules=javafx.swing
+--add-modules=javafx.base
+--add-modules=javafx.fxml
+--add-modules=javafx.media
+--add-modules=javafx.web
+--add-exports javafx.graphics/com.sun.javafx.application=ALL-UNNAMED</description>
+  <organization>
+    <name>softpak</name>
+  </organization>
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.1</version>
+        <executions>
+          <execution>
+            <id>unpack-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>unpack-dependencies</goal>
+            </goals>
+            <configuration>
+              <excludeScope>system</excludeScope>
+              <excludeGroupIds>junit,org.mockito,org.hamcrest</excludeGroupIds>
+              <outputDirectory>${project.build.directory}/classes</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.6.0</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <classpathScope>softpak.gdms_fft</classpathScope>
+          <mainClass>MainApp</mainClass>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.2.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <transformers>
+                <transformer>
+                  <mainClass>softpak.gdms_fft.MainApp</mainClass>
+                  <manifestEntries>
+                    <Multi-Release>true</Multi-Release>
+                  </manifestEntries>
+                </transformer>
+                <transformer />
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <release>11</release>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <repositories>
+    <repository>
+      <id>arcgis</id>
+      <url>https://esri.bintray.com/arcgis</url>
+    </repository>
+    <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
+    </repository>
+    <repository>
+      <id>org.geotools</id>
+      <url>http://maven.icm.edu.pl/artifactory/repo/</url>
+    </repository>
+  </repositories>
+  <properties>
+    <mainClass>softpak.gdms_fft.MainApp</mainClass>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <arcgis.version>100.5.0</arcgis.version>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
+</project>

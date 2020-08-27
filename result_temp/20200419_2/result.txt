@@ -1,0 +1,31 @@
+213718
+===================================================
+Divide parts: 1. Max Sample size: 803
+========= test1 =========
+Sample size: 803
+Predict size: 0
+spherical
+RMSE Vs30(kriging): 156.522 m/s. 34.909 %
+Average Vs30(kriging): 103.250 m/s. 23.529 %
+Max Vs30(kriging): 1108.177 m/s. 248.082 %
+RMSE Vs30(RBF): 156.732 m/s. 33.859 %
+Average Vs30(RBF): 102.344 m/s. 22.910 %
+Max Vs30(RBF): 1112.423 m/s. 247.450 %
+Inner Seicmic Events: 71218
+Inner FreeField Events: 92692
+Min Vs30: 121.45
+Max Vs30: 1538.03
+spherical
+Seismic Vs30 Min: 136.88980805606116
+Seismic Vs30 Max: 976.0379842253169
+Seismic Vs30 start: 100
+Seismic Vs30 end: 1000
+100 <= Vs30 < 200: 985
+200 <= Vs30 < 300: 2634
+300 <= Vs30 < 400: 1571
+400 <= Vs30 < 500: 17062
+500 <= Vs30 < 600: 34913
+600 <= Vs30 < 700: 12821
+700 <= Vs30 < 800: 1187
+800 <= Vs30 < 900: 43
+900 <= Vs30 < 1000: 2

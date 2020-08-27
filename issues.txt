@@ -1,0 +1,3 @@
+H:\論文工具\GDMS_FFT\data\1999_09_22_081440 AM\T395001.265.txt has issues.
+H:\論文工具\GDMS_FFT\data\2006_12_26_082621 PM\D4036000.SMT.txt has issues.
+H:\論文工具\GDMS_FFT\data\2009_12_19_090216 PM\101938\A0635300.RTE.txt has issues.

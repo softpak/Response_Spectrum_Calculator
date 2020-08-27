@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.cell.*?>
+
+<AnchorPane id="AnchorPane" prefHeight="200" prefWidth="300" xmlns:fx="http://javafx.com/fxml" fx:controller="softpak.gdms_fft.FX_Cancel_Controller">
+    <children>
+        <Button fx:id="cancel_button" layoutX="126" layoutY="90" text="Import" onAction="#cancel_ButtonAction"/>
+        <Label fx:id="label" layoutX="126" layoutY="120" minHeight="16" minWidth="69"/>
+        
+        <TextArea fx:id="logs" layoutX="5" layoutY="185" prefHeight="200" prefWidth="790" wrapText="true" />
+    </children>
+</AnchorPane>

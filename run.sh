@@ -1,0 +1,1 @@
+"/C/Program Files/Java/jdk-11.0.4/bin/java" -jar --module-path /C/tools/javafx-sdk-11.0.2/lib --add-modules=javafx.controls,javafx.fxml GDMS_FFT-1.0-SNAPSHOT.jar

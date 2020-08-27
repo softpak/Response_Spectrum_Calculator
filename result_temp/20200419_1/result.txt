@@ -1,0 +1,36 @@
+213718
+===================================================
+Divide parts: 1. Max Sample size: 659
+========= test1 =========
+Sample size: 659
+Predict size: 0
+spherical
+RMSE Vs30(kriging): 148.139 m/s. 32.413 %
+Average Vs30(kriging): 99.374 m/s. 22.450 %
+Max Vs30(kriging): 1108.177 m/s. 232.890 %
+RMSE Vs30(RBF): 149.408 m/s. 31.413 %
+Average Vs30(RBF): 98.947 m/s. 21.869 %
+Max Vs30(RBF): 1112.423 m/s. 229.894 %
+Initializing...
+Java version : 11.0.4 (Oracle Corporation) amd64
+658
+800
+658
+800
+Inner Seicmic Events: 16364
+Inner FreeField Events: 28423
+Min Vs30: 121.45
+Max Vs30: 1538.03
+spherical
+Seismic Vs30 Min: 158.61327647477447
+Seismic Vs30 Max: 841.3514039851725
+Seismic Vs30 start: 100
+Seismic Vs30 end: 900
+100 <= Vs30 < 200: 297
+200 <= Vs30 < 300: 956
+300 <= Vs30 < 400: 660
+400 <= Vs30 < 500: 3436
+500 <= Vs30 < 600: 6362
+600 <= Vs30 < 700: 4148
+700 <= Vs30 < 800: 493
+800 <= Vs30 < 900: 12
