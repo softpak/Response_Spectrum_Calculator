@@ -257,6 +257,11 @@
             <version>22-RC</version>
             <type>jar</type>
         </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>11.0.2</version>
+        </dependency>
     </dependencies>
     <description>--module-path C:\tools\javafx-sdk-11.0.2\lib
 --add-modules=javafx.controls

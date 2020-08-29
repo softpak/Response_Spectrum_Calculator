@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import static java.util.Map.Entry.comparingByValue;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import static java.util.stream.Collectors.toMap;
@@ -38,7 +39,7 @@ public class T0_Calculator {
     List<String[]> data;
     int frontleg;
     int rearleg;
-    boolean is_strong;
+    Optional<Boolean> is_strong;
     
     
     public T0_Calculator() {
@@ -51,7 +52,7 @@ public class T0_Calculator {
         this.rearleg = rearleg;
     }
     
-    public T0_Calculator(List<String[]> data, int frontleg, int rearleg, boolean is_strong) {
+    public T0_Calculator(List<String[]> data, int frontleg, int rearleg, Optional<Boolean> is_strong) {
         this.data = data;
         this.frontleg = frontleg;
         this.rearleg = rearleg;
@@ -77,115 +78,57 @@ public class T0_Calculator {
             
             
             for (int p = this.frontleg; p < this.rearleg; p ++) {
-                try {
-                    String[] s = this.data.get(p);
-                    //System.out.println(Arrays.toString(s));
-                    //calc spectrum
-                    BufferedReader f_br = null;
-                    String f_sCurrentLine = null;
-                    int eff_count = 0;
-                    String f_path = s[0];
-                    f_br = new BufferedReader(new FileReader(f_path));
-                    FFT fft = new FFT();
-                    fft.setSeismic_StartTime_from_path(f_path);
-                    fft.setFilePath(Paths.get(f_path).getParent().toString());
-                    fft.setFileName(Paths.get(f_path).getFileName().toString());
-                    while((f_sCurrentLine = f_br.readLine()) != null) {
-                        String temp_str = f_sCurrentLine;
-                        if (temp_str.startsWith("#")) {
-                            if (temp_str.contains("Code")) {
-                                eff_count++;
-                                fft.setStationCode(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            }
-                            if (temp_str.contains("Kind")) {
-                                eff_count++;
-                                fft.setInstrumentKind(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            }
-                            if (temp_str.contains("StartTime")) {
-                                eff_count++;
-                                String mod = temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim();
-                                mod = mod.replace("-", " ");
-                                fft.setAccelerometer_StartTime(mod);
-                            }
-                            if (temp_str.contains("sec")) {
-                                eff_count++;
-                                fft.setRecordLength(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            }
-                            if (temp_str.contains("Hz")) {
-                                eff_count++;
-                                fft.setSampleRate(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                                fft.initDataArray(fft.getRecordLength().multiply(fft.getSampleRate()).intValue(), 4);
-                            }
-                        } else {//stage 2
-                            fft.setArrayO(temp_str);
-                        }
-                    }
-                    f_br.close();
-                    if (eff_count >= 5) {
-                        try {
-                            fft.transpose();
-                            fft.calc_SSID();
-                            fft.transferDataToFFT();
-                        } catch (NoSuchAlgorithmException ex) {
-                            Utils.logger.fatal(ex);
-                        }
-                    }
-                    avg_pga_list.add(fft.getPGA_E().doubleValue());
-                    avg_pga_list.add(fft.getPGA_N().doubleValue());
-                    
-                    double[] rs_u_in = fft.getOriginData_U();
-                    double[] rs_n_in = fft.getOriginData_N();
-                    double[] rs_e_in = fft.getOriginData_E();
-
-                    for (int i = 0; i < rs_u_in.length;i++) {
-                        rs_u_in[i] = rs_u_in[i]*g;
-                        rs_n_in[i] = rs_n_in[i]*g;
-                        rs_e_in[i] = rs_e_in[i]*g;
-                    }
-                    double damping_ratio = 5D;//5%
-                    double sample_rate = 1D/fft.getSampleRate().doubleValue();// in secs
-                    double period = 5;//10 secs
-                    Response_Spectrum_Calculator rsc = new Response_Spectrum_Calculator();
-                    double[] result_u_Sa = rsc.get_Acc_Response_Spectrum(rs_u_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
-                    double[] result_u_Sv = rsc.get_Velocity_Response_Spectrum();
-                    double u_PGV = rsc.getPGV(rs_u_in);
-                    //System.out.println(fft.getPGA_U()+"/"+u_PGV);
-                    double[] result_n_Sa = rsc.get_Acc_Response_Spectrum(rs_n_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
-                    double[] result_n_Sv = rsc.get_Velocity_Response_Spectrum();
-                    double n_PGV = rsc.getPGV(rs_n_in);
-                    //System.out.println(fft.getPGA_N()+"/"+n_PGV);
-                    double[] result_e_Sa = rsc.get_Acc_Response_Spectrum(rs_e_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
-                    double[] result_e_Sv = rsc.get_Velocity_Response_Spectrum();
-                    double e_PGV = rsc.getPGV(rs_e_in);
-                    //System.out.println(fft.getPGA_E()+"/"+e_PGV);
-                    //regular Ca
-                    for (int i = 0; i < result_u_Sa.length;i++) {
-                        result_u_Sa[i] = result_u_Sa[i]/Math.abs(fft.getPGA_U().doubleValue());
-                        result_n_Sa[i] = result_n_Sa[i]/Math.abs(fft.getPGA_N().doubleValue());
-                        result_e_Sa[i] = result_e_Sa[i]/Math.abs(fft.getPGA_E().doubleValue());
-
-                        result_u_Sv[i] = result_u_Sv[i]/u_PGV;
-                        result_n_Sv[i] = result_n_Sv[i]/n_PGV;
-                        result_e_Sv[i] = result_e_Sv[i]/e_PGV;
-                    }
-                    //System.out.println(period/sample_rate);
-                    //if Ca >=2.5 add in the list
-
-                    y_U_Sa_list.add(result_u_Sa);
-                    y_N_Sa_list.add(result_n_Sa);
-                    y_E_Sa_list.add(result_e_Sa);
-
-                    y_U_Sv_list.add(result_u_Sv);
-                    y_N_Sv_list.add(result_n_Sv);
-                    y_E_Sv_list.add(result_e_Sv);
-
-                    x_axis.add(rsc.getT());
-                    
-                } catch (FileNotFoundException ex) {
-                    Logger.getLogger(T0_Calculator.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (IOException ex) {
-                    Logger.getLogger(T0_Calculator.class.getName()).log(Level.SEVERE, null, ex);
+                String[] s = this.data.get(p);
+                //System.out.println(Arrays.toString(s));
+                //calc spectrum
+                String f_path = s[0];
+                FFT fft = new FFT();
+                fft.load_data_from_source(f_path);
+                avg_pga_list.add(fft.getPGA_E().doubleValue());
+                avg_pga_list.add(fft.getPGA_N().doubleValue());
+                double[] rs_u_in = fft.getOriginData_U();
+                double[] rs_n_in = fft.getOriginData_N();
+                double[] rs_e_in = fft.getOriginData_E();
+                for (int i = 0; i < rs_u_in.length;i++) {
+                    rs_u_in[i] = rs_u_in[i]*g;
+                    rs_n_in[i] = rs_n_in[i]*g;
+                    rs_e_in[i] = rs_e_in[i]*g;
                 }
+                double damping_ratio = 5D;//5%
+                double sample_rate = 1D/fft.getSampleRate().doubleValue();// in secs
+                double period = 5;//10 secs
+                Response_Spectrum_Calculator rsc = new Response_Spectrum_Calculator();
+                double[] result_u_Sa = rsc.get_Acc_Response_Spectrum(rs_u_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
+                double[] result_u_Sv = rsc.get_Velocity_Response_Spectrum();
+                double u_PGV = rsc.getPGV(rs_u_in);
+                //System.out.println(fft.getPGA_U()+"/"+u_PGV);
+                double[] result_n_Sa = rsc.get_Acc_Response_Spectrum(rs_n_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
+                double[] result_n_Sv = rsc.get_Velocity_Response_Spectrum();
+                double n_PGV = rsc.getPGV(rs_n_in);
+                //System.out.println(fft.getPGA_N()+"/"+n_PGV);
+                double[] result_e_Sa = rsc.get_Acc_Response_Spectrum(rs_e_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
+                double[] result_e_Sv = rsc.get_Velocity_Response_Spectrum();
+                double e_PGV = rsc.getPGV(rs_e_in);
+                //System.out.println(fft.getPGA_E()+"/"+e_PGV);
+                //regular Ca
+                for (int i = 0; i < result_u_Sa.length;i++) {
+                    result_u_Sa[i] = result_u_Sa[i]/Math.abs(fft.getPGA_U().doubleValue());
+                    result_n_Sa[i] = result_n_Sa[i]/Math.abs(fft.getPGA_N().doubleValue());
+                    result_e_Sa[i] = result_e_Sa[i]/Math.abs(fft.getPGA_E().doubleValue());
+                    
+                    result_u_Sv[i] = result_u_Sv[i]/u_PGV;
+                    result_n_Sv[i] = result_n_Sv[i]/n_PGV;
+                    result_e_Sv[i] = result_e_Sv[i]/e_PGV;
+                }
+                //System.out.println(period/sample_rate);
+                //if Ca >=2.5 add in the list
+                y_U_Sa_list.add(result_u_Sa);
+                y_N_Sa_list.add(result_n_Sa);
+                y_E_Sa_list.add(result_e_Sa);
+                y_U_Sv_list.add(result_u_Sv);
+                y_N_Sv_list.add(result_n_Sv);
+                y_E_Sv_list.add(result_e_Sv);
+                x_axis.add(rsc.getT());
             }
             
             double avg_pga = avg_pga_list.stream().mapToDouble(pga -> Math.abs(pga)).average().getAsDouble();
@@ -257,7 +200,7 @@ public class T0_Calculator {
             }
             double RS_ne = NE_max_pos*x_axis.get(0)[1];
             
-            XYChart acc_chart_ne = QuickChart.getChart(st_name+" Ca: "+Configs.df.format(ne_acc_max_value)+" times", "Period(sec)", "Sa", "NE avg Axis", x_axis.get(T_min_pos), NE_avg_Sa);
+            XYChart acc_chart_ne = QuickChart.getChart(st_name+" Ca: "+Configs.df_2deci.format(ne_acc_max_value)+" times T: "+Configs.df_2deci.format(RS_ne)+" secs", "Period(sec)", "Sa", "NE avg Axis", x_axis.get(T_min_pos), NE_avg_Sa);
             acc_chart_ne.getStyler().setXAxisMax(5D);
             BitmapEncoder.saveBitmap(acc_chart_ne, Utils.get_MainPath()+"/Sa_"+this.is_strong+"_"+st_name+"_NE.png", BitmapEncoder.BitmapFormat.PNG);
  
@@ -463,11 +406,15 @@ public class T0_Calculator {
                 point_y = coefficients_sv[0];
                 //System.out.println(coefficients_sv[0] + "," + coefficients_sv[1]);
                 T0 = Math.pow(10D,point_y-constant);
-                System.out.println(st_name+": "+Configs.coord_df.format(T0)+" "+this.is_strong+" Ca: "+Configs.coord_df.format(ne_acc_max_value)+ " AVG_PGA: "+Configs.coord_df.format(avg_pga));
+                if (this.is_strong == null) {
+                    System.out.println(st_name+": "+Configs.coord_df.format(T0)+" Ca: "+Configs.coord_df.format(ne_acc_max_value)+ " AVG_PGA: "+Configs.coord_df.format(avg_pga));
+                } else {
+                    System.out.println(st_name+": "+Configs.coord_df.format(T0)+" "+this.is_strong.get()+" Ca: "+Configs.coord_df.format(ne_acc_max_value)+ " AVG_PGA: "+Configs.coord_df.format(avg_pga));
+                }
             }
             //if (Sa_range.size() > 0) {
             XYChart vel_chart_ne = new XYChart(800, 600);
-            vel_chart_ne.setTitle(st_name+" T0: "+ Configs.df.format(T0)+" sec  y: " + Configs.df.format(point_y)+" const: "+Configs.df.format(constant));
+            vel_chart_ne.setTitle(st_name+" T0: "+ Configs.df_2deci.format(T0)+" sec  y: " + Configs.df_2deci.format(point_y)+" const: "+Configs.df_2deci.format(constant));
             vel_chart_ne.setXAxisTitle("Log T(sec)");
             vel_chart_ne.setYAxisTitle("Log(Sv)");
             double[] peak_t = new double[sv_peak_map.size()];
@@ -485,7 +432,7 @@ public class T0_Calculator {
             vel_chart_ne.addSeries("NE avg Axis", time_new, NE_avg_Sv_new).setMarker(SeriesMarkers.NONE);
             double[] sv_t = {-2,2};
             double[] sv_val = {point_y, point_y};
-            vel_chart_ne.addSeries("Log(Sv) y = "+Configs.df.format(point_y), sv_t, sv_val).setMarker(SeriesMarkers.NONE);
+            vel_chart_ne.addSeries("Log(Sv) y = "+Configs.df_2deci.format(point_y), sv_t, sv_val).setMarker(SeriesMarkers.NONE);
             double max_x = 1.5D;
             /*
             if (max_x + constant < point_y) {

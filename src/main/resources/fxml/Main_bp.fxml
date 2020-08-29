@@ -53,7 +53,7 @@
                         <MenuItem onAction="#clear_fft_data_DB_ButtonAction" text="Clear FFT Data(DB)" />
                         <MenuItem onAction="#flush_db_ButtonAction" text="Flush DB" />
                         <MenuItem onAction="#check_error_ButtonAction" text="Check Data Errors" />
-                        <MenuItem onAction="#design_spectrum_ButtonAction" text="Design Spectrum" />
+                        <MenuItem onAction="#corner_period_ButtonAction" text="Corner Period" />
                         <MenuItem onAction="#export_pga_ButtonAction" text="Export PGA" />
                         <MenuItem onAction="#front_rear_spectrum_ButtonAction" text="Front 10% and Rear 10% Spectrum" />
                     </items>

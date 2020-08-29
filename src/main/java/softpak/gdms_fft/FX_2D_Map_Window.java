@@ -183,7 +183,7 @@ public class FX_2D_Map_Window extends Application {
                                 sub_ff.start(new Stage());
                                 sub_stn_listed.append("Near by Seicmics: ")
                                         .append(format.format(sc.getValue().getStartTime())).append(" ")
-                                        .append(Configs.df.format(sc.getValue().getMagnitude().doubleValue())).append(" ")
+                                        .append(Configs.df_2deci.format(sc.getValue().getMagnitude().doubleValue())).append(" ")
                                         .append(sc.getValue().getDepth_Of_Focus()).append("KM");
                                 sub_ff.setTitle(sub_stn_listed.toString()+" 2D Map");
                             } catch (Exception ex) {
@@ -690,13 +690,13 @@ public class FX_2D_Map_Window extends Application {
                 //sb.append(Configs.df.format(aps_temp.getVs30())).append(": ").append(Configs.df.format(aps_temp.getStationLongitude().doubleValue())).append(", ").append(Configs.df.format(aps_temp.getStationLatitude().doubleValue()));
                 sb.append(aps_temp.getStationCode())   
                         .append(" - ")
-                    .append(Configs.df.format(aps_temp.getVs30()))
+                    .append(Configs.df_2deci.format(aps_temp.getVs30()))
                         .append(": U ")
-                    .append(Configs.df.format(aps_temp.getMax_U_Hz_20().doubleValue()))
+                    .append(Configs.df_2deci.format(aps_temp.getMax_U_Hz_20().doubleValue()))
                         .append(", N ")
-                    .append(Configs.df.format(aps_temp.getMax_N_Hz_20().doubleValue()))
+                    .append(Configs.df_2deci.format(aps_temp.getMax_N_Hz_20().doubleValue()))
                         .append(", E ")
-                    .append(Configs.df.format(aps_temp.getMax_E_Hz_20().doubleValue()));
+                    .append(Configs.df_2deci.format(aps_temp.getMax_E_Hz_20().doubleValue()));
                 
                 //have text overlapping problem
                 TextSymbol txtSymbol = new TextSymbol(10F, sb.toString(), hexBlue,  TextSymbol.HorizontalAlignment.LEFT, TextSymbol.VerticalAlignment.BOTTOM);
@@ -759,7 +759,7 @@ public class FX_2D_Map_Window extends Application {
                     StringBuilder sb = new StringBuilder();
                     //sb.append(Configs.df.format(k_val)).append(": ").append(Configs.df.format(st.longitude)).append(", ").append(Configs.df.format(st.latitude));
                     
-                    sb.append(Configs.df.format(k_val));
+                    sb.append(Configs.df_2deci.format(k_val));
                     /*
                     .append(": U ")
                     .append(Configs.df.format(aps_temp.getMax_U_Hz_20().doubleValue()))

@@ -66,7 +66,7 @@ public class Configs {
     public static int log_textarea_max_lines = 100;
     public static Queue<Integer> log_textarea_line_pos = Queues.newConcurrentLinkedQueue();
     public static Queue<String[]> db_del_queue = Queues.newConcurrentLinkedQueue();
-    public static DecimalFormat df = new DecimalFormat("#,##0.00");
+    public static DecimalFormat df_2deci = new DecimalFormat("#,##0.00");
     public static DecimalFormat data_df = new DecimalFormat("#,###0.000");
     public static DecimalFormat coord_df = new DecimalFormat("#,####0.0000");
     public static DecimalFormat time_df = new DecimalFormat("##00");

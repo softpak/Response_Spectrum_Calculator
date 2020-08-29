@@ -255,7 +255,7 @@ public class FX_2D_Map_Window_Interpolation_Test extends Application {
             //sc_features.add(sc_pointsTable.createFeature(attr, point));
             //add text symbo
             
-            TextSymbol txtSymbol = new TextSymbol(10F, "                  "+ Configs.df.format(ir.get_ErrorPercent())+"% "+Configs.df.format(ir.get_PredictValue())+"/"+Configs.df.format(ir.get_CurrentValue()), hexBlue,  TextSymbol.HorizontalAlignment.LEFT, TextSymbol.VerticalAlignment.BOTTOM);
+            TextSymbol txtSymbol = new TextSymbol(10F, "                  "+ Configs.df_2deci.format(ir.get_ErrorPercent())+"% "+Configs.df_2deci.format(ir.get_PredictValue())+"/"+Configs.df_2deci.format(ir.get_CurrentValue()), hexBlue,  TextSymbol.HorizontalAlignment.LEFT, TextSymbol.VerticalAlignment.BOTTOM);
 
             //a point to define where the text is drawn
             Point pt = new Point(lon, lat, SpatialReferences.getWgs84());

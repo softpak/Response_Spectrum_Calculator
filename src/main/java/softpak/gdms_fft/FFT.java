@@ -5,11 +5,15 @@
  */
 package softpak.gdms_fft;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
@@ -17,6 +21,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.jtransforms.fft.DoubleFFT_1D;
@@ -398,25 +404,8 @@ public class FFT implements Serializable {
         return x;
     }
     
-    
-    public void transferDataToFFT() {
-        //System.out.println("transferDataToFFT");
-        int loopcount = columns_t/4;
-        boolean loop = true;
+    public void preprocessingData() {
         hertz = new double[columns_t];
-        hertz_format.applyPattern("0.00");
-        double U_max = 0;
-        double N_max = 0;
-        double E_max = 0;
-        double U_max_20 = 0;
-        double N_max_20 = 0;
-        double E_max_20 = 0;
-        
-        /*
-        DoubleFFT_1D fft_U = new DoubleFFT_1D(rows_o);
-        DoubleFFT_1D fft_N = new DoubleFFT_1D(rows_o);
-        DoubleFFT_1D fft_E = new DoubleFFT_1D(rows_o);*/
-        
         fft_U_in = new double[rows_o];
         fft_N_in = new double[rows_o];
         fft_E_in = new double[rows_o];
@@ -458,11 +447,26 @@ public class FFT implements Serializable {
         pga_u = fft_U_in[U_pga_pos];
         pga_n = fft_N_in[N_pga_pos];
         pga_e = fft_E_in[E_pga_pos];
+    }
+    
+    
+    public void transferDataToFFT() {
+        //System.out.println("transferDataToFFT");
+        int loopcount = columns_t/4;
+        boolean loop = true;
+        hertz_format.applyPattern("0.00");
+        double U_max = 0;
+        double N_max = 0;
+        double E_max = 0;
+        double U_max_20 = 0;
+        double N_max_20 = 0;
+        double E_max_20 = 0;
         
         
+        DoubleFFT_1D fft_U = new DoubleFFT_1D(rows_o);
+        DoubleFFT_1D fft_N = new DoubleFFT_1D(rows_o);
+        DoubleFFT_1D fft_E = new DoubleFFT_1D(rows_o);
         
-        
-        /*
         if (Configs.detrend_least_square_selected) {
             fft_U_in = detrend_least_square(hertz, fft_U_in);
             fft_N_in = detrend_least_square(hertz, fft_N_in);
@@ -500,7 +504,7 @@ public class FFT implements Serializable {
             fft_array_U_abs[c] = Math.sqrt(Math.pow(fft_array_U_real[c],2)+Math.pow(fft_array_U_imag[c],2));
             fft_array_N_abs[c] = Math.sqrt(Math.pow(fft_array_N_real[c],2)+Math.pow(fft_array_N_imag[c],2));
             fft_array_E_abs[c] = Math.sqrt(Math.pow(fft_array_E_real[c],2)+Math.pow(fft_array_E_imag[c],2));
-        }*/
+        }
         
         /*
         for (int c = 0;  c < columns_t; c++) {
@@ -512,7 +516,7 @@ public class FFT implements Serializable {
         //smoothing();
         
         boolean first_cal = true;
-        /*
+        
         while (loop) {
             if (first_cal) {
                 for (int c = 0;  c < columns_t; c++) {
@@ -621,7 +625,7 @@ public class FFT implements Serializable {
                 }
             }
             loopcount--;
-        }*/
+        }
     }
     
     public double[] getOriginData_U() {
@@ -857,5 +861,62 @@ public class FFT implements Serializable {
                 break;
         }
         
+    }
+    
+    public void load_data_from_source(String filepath) {
+        try {
+            BufferedReader f_br = null;
+            String f_sCurrentLine = null;
+            int eff_count = 0;
+            f_br = new BufferedReader(new FileReader(filepath));
+            this.setSeismic_StartTime_from_path(filepath);
+            this.setFilePath(Paths.get(filepath).getParent().toString());
+            this.setFileName(Paths.get(filepath).getFileName().toString());
+            while((f_sCurrentLine = f_br.readLine()) != null) {
+                String temp_str = f_sCurrentLine;
+                if (temp_str.startsWith("#")) {
+                    if (temp_str.contains("Code")) {
+                        eff_count++;
+                        this.setStationCode(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
+                    }
+                    if (temp_str.contains("Kind")) {
+                        eff_count++;
+                        this.setInstrumentKind(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
+                    }
+                    if (temp_str.contains("StartTime")) {
+                        eff_count++;
+                        String mod = temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim();
+                        mod = mod.replace("-", " ");
+                        this.setAccelerometer_StartTime(mod);
+                    }
+                    if (temp_str.contains("sec")) {
+                        eff_count++;
+                        this.setRecordLength(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
+                    }
+                    if (temp_str.contains("Hz")) {
+                        eff_count++;
+                        this.setSampleRate(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
+                        this.initDataArray(this.getRecordLength().multiply(this.getSampleRate()).intValue(), 4);
+                    }
+                } else {//stage 2
+                    this.setArrayO(temp_str);
+                }
+            }
+            f_br.close();
+            if (eff_count >= 5) {
+                try {
+                    this.transpose();
+                    this.calc_SSID();
+                    this.preprocessingData();
+                    //this.transferDataToFFT();
+                } catch (NoSuchAlgorithmException ex) {
+                    Utils.logger.fatal(ex);
+                }
+            }
+        } catch (FileNotFoundException ex) {
+            Logger.getLogger(FFT.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(FFT.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 }

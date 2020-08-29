@@ -44,6 +44,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import static java.util.Map.Entry.comparingByValue;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.ResourceBundle;
 import java.util.Set;
@@ -73,6 +74,7 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckMenuItem;
+import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
@@ -314,9 +316,9 @@ public class FX_Main_Controller implements Initializable {
                 //Map to linkedlist
                 int rear10 = (int) Math.round(data_size*0.1D);//least 2
                 int front10 = data_size - rear10;
-                T0_Calculator weak_t0c = new T0_Calculator(dm.getValue(), 0, rear10, false);
+                T0_Calculator weak_t0c = new T0_Calculator(dm.getValue(), 0, rear10, Optional.of(Boolean.FALSE));
                 weak_t0c.calculate();
-                T0_Calculator strong_t0c = new T0_Calculator(dm.getValue(), front10, dm.getValue().size(), true);
+                T0_Calculator strong_t0c = new T0_Calculator(dm.getValue(), front10, dm.getValue().size(), Optional.of(Boolean.TRUE));
                 strong_t0c.calculate();
             }
         });
@@ -326,190 +328,174 @@ public class FX_Main_Controller implements Initializable {
     
     @FXML
     private void export_pga_ButtonAction(ActionEvent event) throws Exception {
-        FileChooser station_fileChooser = new FileChooser();
-        station_fileChooser.setTitle("Station File");
-        station_fileChooser.setInitialDirectory(new File("."));                 
-        station_fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel", "*.xlsx"));
-        station_fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel 97-2003", "*.xls"));
-        File dir = station_fileChooser.showOpenDialog(MainApp.stage);
-        if (dir != null) {
-            label_status.setText(dir.getCanonicalPath());
-            Utils.set_ProjectPath(dir.getCanonicalPath());
-            process_station_data_into_db(dir.getCanonicalPath(), 0);//insert
-        } else {
-            label_status.setText("idle");
-        }
-        String path = dir.getAbsolutePath();
+        //from DB
+        //from origin data
+        //from excel
+        List<String> choices = Lists.newArrayList();
+        String from_db = "from DB";
+        String from_otd = "from Origin Text Data";
+        String from_excel = "from Excel";
+        choices.add(from_db);
+        choices.add(from_otd);
+        choices.add(from_excel);
         
-        XSSFWorkbook SourceBook = new XSSFWorkbook(path);
-        String sheet_name = SourceBook.getSheetAt(0).getSheetName();
-        //System.out.println(copy_sheet_name);
-        XSSFSheet sheet = SourceBook.getSheet(sheet_name);
-        List<String[]> result_list = Lists.newLinkedList();
-        for (int i = 1; i < sheet.getPhysicalNumberOfRows() ; i++) {
-            Row row = sheet.getRow(i);
-            //lc++;
-            int cell_num = 13;
-            String[] cell_string = new String[13];
+        ChoiceDialog<String> dialog = new ChoiceDialog(choices.get(0), choices);
+        dialog.setTitle("Export PGA");
+        
+        dialog.setHeaderText(" ");
+        dialog.setContentText("Select Data Source");
+        dialog.setGraphic(new ImageView(new Image(getClass().getResourceAsStream("/icon/search.png"))));
+        Stage stage = (Stage) dialog.getDialogPane().getScene().getWindow();
+        // Add a custom icon.
+        stage.getIcons().add(new Image(getClass().getResourceAsStream("/icon/upload.png")));
+        
+        
+        Optional<String> result = dialog.showAndWait();
+        String selected = null;
 
-            for (int j = 0; j < cell_num; j++) {
-                cell_string[j] = row.getCell(j).toString();
-            }
-            result_list.add(cell_string);
-            //System.out.println();
-            
-        }
-        //gen station nem set
-        Set<String> st_name_set = Sets.newLinkedHashSet();
-        result_list.forEach(rs -> st_name_set.add(rs[3]));
-        Map<String, Map<String, String[]>> data_map = Maps.newConcurrentMap();//station, time
-        
-        
-        //String[] cell_head = {"Path", "magnitude", "Date", "Station", "RS_U", "RS_N", "RS_E", "EpicenterDistance", "Fault Dist(Station)", "Fault Dist(Seismic)", "Fault Name(Seismic)", "Seismic Vs30", "Station Vs30"};
-        //                       0        1           2       3          4       5       6        7                          8                      9                10                      11             12
-        for (int rc = 0; rc < result_list.size(); rc++) {
-            String[] data_temp = result_list.get(rc);
-            if (data_map.get(data_temp[3]) == null) {
-                Map<String, String[]> dtat_temp = Maps.newConcurrentMap();
-                dtat_temp.put(data_temp[2], data_temp);
-                data_map.put(data_temp[3], dtat_temp);
-            } else {
-                data_map.get(data_temp[3]).put(data_temp[2], data_temp);
-            }
-        }
-        //String[] cell_head = {"Path", "Station", "PGA_U", "PGA_N", "PGA_E", "AVG_NE_PGA"};
-        List<String[]> export_result_list = Lists.newLinkedList();
-        data_map.entrySet().parallelStream().forEach(dm -> {
-            if (dm.getValue().size() > 0) {//4
-            //if (dm.getKey().equals("TAP002")) {
-                dm.getValue().entrySet().stream().forEach(data -> {
-                try {
-                    String[] s = data.getValue();
-                    String[] export = new String[6];
-                    //calc spectrum
-                    BufferedReader f_br = null;
-                    String f_sCurrentLine = null;
-                    int eff_count = 0;
-                    String f_path = s[0];
-                    export[0] = f_path;
-                    f_br = new BufferedReader(new FileReader(f_path));
-                    FFT fft = new FFT();
-                    fft.setSeismic_StartTime_from_path(f_path);
-                    fft.setFilePath(Paths.get(f_path).getParent().toString());
-                    fft.setFileName(Paths.get(f_path).getFileName().toString());
-                    while((f_sCurrentLine = f_br.readLine()) != null) {
-                        String temp_str = f_sCurrentLine;
-                        if (temp_str.startsWith("#")) {
-                            if (temp_str.contains("Code")) {
-                                eff_count++;
-                                fft.setStationCode(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            }
-                            if (temp_str.contains("Kind")) {
-                                eff_count++;
-                                fft.setInstrumentKind(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            }
-                            if (temp_str.contains("StartTime")) {
-                                eff_count++;
-                                String mod = temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim();
-                                mod = mod.replace("-", " ");
-                                fft.setAccelerometer_StartTime(mod);
-                            }
-                            if (temp_str.contains("sec")) {
-                                eff_count++;
-                                fft.setRecordLength(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            }
-                            if (temp_str.contains("Hz")) {
-                                eff_count++;
-                                fft.setSampleRate(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                                fft.initDataArray(fft.getRecordLength().multiply(fft.getSampleRate()).intValue(), 4);
-                            }
-                        } else {//stage 2
-                            fft.setArrayO(temp_str);
-                        }
-                    }
-                    f_br.close();
-                    if (eff_count >= 5) {
-                        try {
-                            fft.transpose();
-                            fft.calc_SSID();
-                            fft.transferDataToFFT();
-                        } catch (NoSuchAlgorithmException ex) {
-                            Utils.logger.fatal(ex);
-                        }
-                    }
-                    double u_PGA = fft.getPGA_U().doubleValue();
-                    double n_PGA = fft.getPGA_N().doubleValue();
-                    double e_PGA = fft.getPGA_E().doubleValue();
-                    double ne_avg_PGA = (Math.abs(n_PGA) + Math.abs(e_PGA))/2D;
-                    export[1] = fft.getStationCode();
-                    export[2] = Configs.df.format(u_PGA);
-                    export[3] = Configs.df.format(n_PGA);
-                    export[4] = Configs.df.format(e_PGA);
-                    export[5] = Configs.df.format(ne_avg_PGA);
-                    export_result_list.add(export);
-                    
-                    } catch (FileNotFoundException ex) {
-                        Logger.getLogger(FX_Main_Controller.class.getName()).log(Level.SEVERE, null, ex);
-                    } catch (IOException ex) {
-                        Logger.getLogger(FX_Main_Controller.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                });
-            }
-        });
-        
-        
-        
-        //export to excel
-        XSSFWorkbook export_rs_workbook = new XSSFWorkbook();
-        String export_sheet_name = "PGA result";
-        String file_name = "PGA_Result"+System.currentTimeMillis();
-        int rowCount = 0;
-        XSSFSheet export_sheet = export_rs_workbook.createSheet(export_sheet_name);
-        //add head
-        Row row_head = export_sheet.createRow(rowCount);
-        String[] cell_head = {"Path", "Station", "PGA_U", "PGA_N", "PGA_E", "AVG_NE_PGA"};
-        for (int rc = 0; rc < cell_head.length; rc++) {
-            Cell cell = row_head.createCell(rc);
-            cell.setCellValue(cell_head[rc]);
-        }
-        for (int rc = 0; rc < export_result_list.size(); rc++) {
-            try { 
-                Row row = export_sheet.createRow(++rowCount);
-                String[] data_temp = export_result_list.get(rc);
-                String[] cell_string = {data_temp[0], data_temp[1], data_temp[2], data_temp[3], data_temp[4], data_temp[5]};
-                if (data_map.get(data_temp[2]) == null) {
-                    Map<String, String[]> dtat_temp = Maps.newConcurrentMap();
-                    dtat_temp.put(data_temp[1], data_temp);
-                    data_map.put(data_temp[2], dtat_temp);
-                } else {
-                    data_map.get(data_temp[2]).put(data_temp[1], data_temp);
-                }
+        if (result.isPresent()) {
+            selected = result.get();
+            if (selected.equals(from_db)) {
                 
-                for (int rcc = 0; rcc < cell_string.length; rcc++) {
-                    Cell cell = row.createCell(rcc);
-                    if (rcc > 1) {//numbers
-                        cell_string[rcc] = cell_string[rcc].replace(",", "");
-                        cell.setCellValue(Double.valueOf(cell_string[rcc]));
-                    } else {//string
-                        cell.setCellValue(cell_string[rcc]);
-                    }
-                }
-                try (FileOutputStream outputStream = new FileOutputStream(file_name+".xlsx")) {
-                    export_rs_workbook.write(outputStream);
-                } catch (FileNotFoundException ex) {
-                    Utils.logger.fatal(ex);
-                    //Logger.getLogger(Relations.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (IOException ex) {
-                    Utils.logger.fatal(ex);
-                    //Logger.getLogger(Relations.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                //rowCount++;
-            } catch (Exception ex) {
-                Utils.logger.fatal(ex);
+            } else if (selected.equals(from_otd)) {
+                
+                
+            } else if (selected.equals(from_excel)) {
+                
+                
             }
+            File dir = Utils.excel_filechooser("Export PGA from Excel");
+            
+            if (dir != null) {
+                label_status.setText(dir.getCanonicalPath());
+                Utils.set_ProjectPath(dir.getCanonicalPath());
+                process_station_data_into_db(dir.getCanonicalPath(), 0);//insert
+            } else {
+                label_status.setText("idle");
+            }
+            String path = dir.getAbsolutePath();
+
+            XSSFWorkbook SourceBook = new XSSFWorkbook(path);
+            String sheet_name = SourceBook.getSheetAt(0).getSheetName();
+            //System.out.println(copy_sheet_name);
+            XSSFSheet sheet = SourceBook.getSheet(sheet_name);
+            List<String[]> result_list = Lists.newLinkedList();
+            for (int i = 1; i < sheet.getPhysicalNumberOfRows() ; i++) {
+                Row row = sheet.getRow(i);
+                //lc++;
+                int cell_num = 13;
+                String[] cell_string = new String[13];
+
+                for (int j = 0; j < cell_num; j++) {
+                    cell_string[j] = row.getCell(j).toString();
+                }
+                result_list.add(cell_string);
+                //System.out.println();
+
+            }
+            //gen station nem set
+            Set<String> st_name_set = Sets.newLinkedHashSet();
+            result_list.forEach(rs -> st_name_set.add(rs[3]));
+            Map<String, Map<String, String[]>> data_map = Maps.newConcurrentMap();//station, time
+
+
+            //String[] cell_head = {"Path", "magnitude", "Date", "Station", "RS_U", "RS_N", "RS_E", "EpicenterDistance", "Fault Dist(Station)", "Fault Dist(Seismic)", "Fault Name(Seismic)", "Seismic Vs30", "Station Vs30"};
+            //                       0        1           2       3          4       5       6        7                          8                      9                10                      11             12
+            for (int rc = 0; rc < result_list.size(); rc++) {
+                String[] data_temp = result_list.get(rc);
+                if (data_map.get(data_temp[3]) == null) {
+                    Map<String, String[]> dtat_temp = Maps.newConcurrentMap();
+                    dtat_temp.put(data_temp[2], data_temp);
+                    data_map.put(data_temp[3], dtat_temp);
+                } else {
+                    data_map.get(data_temp[3]).put(data_temp[2], data_temp);
+                }
+            }
+            //String[] cell_head = {"Path", "Station", "PGA_U", "PGA_N", "PGA_E", "AVG_NE_PGA"};
+            List<String[]> export_result_list = Lists.newLinkedList();
+            data_map.entrySet().parallelStream().forEach(dm -> {
+                if (dm.getValue().size() > 0) {//4
+                //if (dm.getKey().equals("TAP002")) {
+                    dm.getValue().entrySet().stream().forEach(data -> {
+                        String[] s = data.getValue();
+                        String[] export = new String[6];
+                        //calc spectrum
+                        int eff_count = 0;
+                        String f_path = s[0];
+                        export[0] = f_path;
+                        FFT fft = new FFT();
+                        fft.load_data_from_source(f_path);
+                        double u_PGA = fft.getPGA_U().doubleValue();
+                        double n_PGA = fft.getPGA_N().doubleValue();
+                        double e_PGA = fft.getPGA_E().doubleValue();
+                        double ne_avg_PGA = (Math.abs(n_PGA) + Math.abs(e_PGA))/2D;
+                        export[1] = fft.getStationCode();
+                        export[2] = Configs.df_2deci.format(u_PGA);
+                        export[3] = Configs.df_2deci.format(n_PGA);
+                        export[4] = Configs.df_2deci.format(e_PGA);
+                        export[5] = Configs.df_2deci.format(ne_avg_PGA);
+                        export_result_list.add(export);
+                    });
+                }
+            });
+
+            //export to excel
+            XSSFWorkbook export_rs_workbook = new XSSFWorkbook();
+            String export_sheet_name = "PGA result";
+            String file_name = "PGA_Result"+System.currentTimeMillis();
+            int rowCount = 0;
+            XSSFSheet export_sheet = export_rs_workbook.createSheet(export_sheet_name);
+            //add head
+            Row row_head = export_sheet.createRow(rowCount);
+            String[] cell_head = {"Path", "Station", "PGA_U", "PGA_N", "PGA_E", "AVG_NE_PGA"};
+            for (int rc = 0; rc < cell_head.length; rc++) {
+                Cell cell = row_head.createCell(rc);
+                cell.setCellValue(cell_head[rc]);
+            }
+            for (int rc = 0; rc < export_result_list.size(); rc++) {
+                try { 
+                    Row row = export_sheet.createRow(++rowCount);
+                    String[] data_temp = export_result_list.get(rc);
+                    String[] cell_string = {data_temp[0], data_temp[1], data_temp[2], data_temp[3], data_temp[4], data_temp[5]};
+                    if (data_map.get(data_temp[2]) == null) {
+                        Map<String, String[]> dtat_temp = Maps.newConcurrentMap();
+                        dtat_temp.put(data_temp[1], data_temp);
+                        data_map.put(data_temp[2], dtat_temp);
+                    } else {
+                        data_map.get(data_temp[2]).put(data_temp[1], data_temp);
+                    }
+
+                    for (int rcc = 0; rcc < cell_string.length; rcc++) {
+                        Cell cell = row.createCell(rcc);
+                        if (rcc > 1) {//numbers
+                            cell_string[rcc] = cell_string[rcc].replace(",", "");
+                            cell.setCellValue(Double.valueOf(cell_string[rcc]));
+                        } else {//string
+                            cell.setCellValue(cell_string[rcc]);
+                        }
+                    }
+                    try (FileOutputStream outputStream = new FileOutputStream(file_name+".xlsx")) {
+                        export_rs_workbook.write(outputStream);
+                    } catch (FileNotFoundException ex) {
+                        Utils.logger.fatal(ex);
+                        //Logger.getLogger(Relations.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (IOException ex) {
+                        Utils.logger.fatal(ex);
+                        //Logger.getLogger(Relations.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    //rowCount++;
+                } catch (Exception ex) {
+                    Utils.logger.fatal(ex);
+                }
+            }
+            label_status.setText("Export PGA Done");
+            //System.out.println("Export PGA Done");
+        } else {
+            dialog.close();
         }
         
-        System.out.println("Export PGA Done");
+        
+        
     }
     
     @FXML
@@ -653,11 +639,11 @@ public class FX_Main_Controller implements Initializable {
                         double[] resultU = calculateSD(y_U_list);
                         double[] resultN = calculateSD(y_N_list);
                         double[] resultE = calculateSD(y_E_list);
-                        //System.out.println(st_name+": "+ Configs.df.format(resultU)+", "+Configs.df.format(resultN)+", "+Configs.df.format(resultE));
+                        //System.out.println(st_name+": "+ Configs.df_2deci.format(resultU)+", "+Configs.df_2deci.format(resultN)+", "+Configs.df_2deci.format(resultE));
 
-                        System.out.println(st_name+": "+ Configs.df.format(resultU[0])+", "+Configs.df.format(resultU[1])+": "
-                                                        +Configs.df.format(resultN[0])+", "+Configs.df.format(resultN[1])+": "
-                                                        +Configs.df.format(resultE[0])+", "+Configs.df.format(resultE[1])+" Vs30: "+ x_list.get(0));
+                        System.out.println(st_name+": "+ Configs.df_2deci.format(resultU[0])+", "+Configs.df_2deci.format(resultU[1])+": "
+                                                        +Configs.df_2deci.format(resultN[0])+", "+Configs.df_2deci.format(resultN[1])+": "
+                                                        +Configs.df_2deci.format(resultE[0])+", "+Configs.df_2deci.format(resultE[1])+" Vs30: "+ x_list.get(0));
                     }
                 }
             //}
@@ -832,7 +818,7 @@ public class FX_Main_Controller implements Initializable {
     }
     
     @FXML
-    private void design_spectrum_ButtonAction(ActionEvent event) throws Exception {
+    private void corner_period_ButtonAction(ActionEvent event) throws Exception {
         //load exist excel file
         //String path = Utils.get_MainPath()+"/Response_Spectrum_Result1592856743673.xlsx";
         FileChooser station_fileChooser = new FileChooser();
@@ -871,7 +857,8 @@ public class FX_Main_Controller implements Initializable {
         //gen station nem set
         Set<String> st_name_set = Sets.newLinkedHashSet();
         result_list.forEach(rs -> st_name_set.add(rs[3]));
-        Map<String, Map<String, String[]>> data_map = Maps.newConcurrentMap();//station, time
+        Map<String, List<String[]>> data_map = Maps.newConcurrentMap();//station, time
+        //Map<String, Map<String, String[]>> data_map = Maps.newConcurrentMap();//station, time
         
         
         //String[] cell_head = {"Path", "magnitude", "Date", "Station", "RS_U", "RS_N", "RS_E", "EpicenterDistance", "Fault Dist(Station)", "Fault Dist(Seismic)", "Fault Name(Seismic)", "Seismic Vs30", "Station Vs30"};
@@ -880,476 +867,19 @@ public class FX_Main_Controller implements Initializable {
         for (int rc = 0; rc < result_list.size(); rc++) {
             String[] data_temp = result_list.get(rc);
             if (data_map.get(data_temp[3]) == null) {
-                Map<String, String[]> dtat_temp = Maps.newConcurrentMap();
-                dtat_temp.put(data_temp[2], data_temp);
-                data_map.put(data_temp[3], dtat_temp);
+                List<String[]> data_list = Lists.newLinkedList();
+                data_list.add(data_temp);
+                data_map.put(data_temp[3], data_list);
             } else {
-                data_map.get(data_temp[3]).put(data_temp[2], data_temp);
+                data_map.get(data_temp[3]).add(data_temp);
             }
         }
        
         data_map.entrySet().parallelStream().forEach(dm -> {
-            if (dm.getValue().size() > 0) {//4
-            //if (dm.getKey().equals("TAP002")) {
-                try {
-                
-                    String st_name = dm.getKey();
-                    //calc Response Spectrum
-                    List<double[]> x_axis = Lists.newLinkedList();
-                    List<double[]> y_U_Sa_list = Lists.newLinkedList();
-                    List<double[]> y_N_Sa_list = Lists.newLinkedList();
-                    List<double[]> y_E_Sa_list = Lists.newLinkedList();
-                    List<double[]> y_U_Sv_list = Lists.newLinkedList();
-                    List<double[]> y_N_Sv_list = Lists.newLinkedList();
-                    List<double[]> y_E_Sv_list = Lists.newLinkedList();
-                    
-                    dm.getValue().entrySet().stream().forEach(data -> {
-                        try {
-                            String[] s = data.getValue();
-                            //calc spectrum
-                            BufferedReader f_br = null;
-                            String f_sCurrentLine = null;
-                            int eff_count = 0;
-                            String f_path = s[0];
-                            f_br = new BufferedReader(new FileReader(f_path));
-                            FFT fft = new FFT();
-                            fft.setSeismic_StartTime_from_path(f_path);
-                            fft.setFilePath(Paths.get(f_path).getParent().toString());
-                            fft.setFileName(Paths.get(f_path).getFileName().toString());
-                            while((f_sCurrentLine = f_br.readLine()) != null) {
-                                String temp_str = f_sCurrentLine;
-                                if (temp_str.startsWith("#")) {
-                                    if (temp_str.contains("Code")) {
-                                        eff_count++;
-                                        fft.setStationCode(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                                    }
-                                    if (temp_str.contains("Kind")) {
-                                        eff_count++;
-                                        fft.setInstrumentKind(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                                    }
-                                    if (temp_str.contains("StartTime")) {
-                                        eff_count++;
-                                        String mod = temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim();
-                                        mod = mod.replace("-", " ");
-                                        fft.setAccelerometer_StartTime(mod);
-                                    }
-                                    if (temp_str.contains("sec")) {
-                                        eff_count++;
-                                        fft.setRecordLength(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                                    }
-                                    if (temp_str.contains("Hz")) {
-                                        eff_count++;
-                                        fft.setSampleRate(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                                        fft.initDataArray(fft.getRecordLength().multiply(fft.getSampleRate()).intValue(), 4);
-                                    }
-                                } else {//stage 2
-                                    fft.setArrayO(temp_str);
-                                }
-                            }
-                            f_br.close();
-                            if (eff_count >= 5) {
-                                try {
-                                    fft.transpose();
-                                    fft.calc_SSID();
-                                    fft.transferDataToFFT();
-                                } catch (NoSuchAlgorithmException ex) {
-                                    Utils.logger.fatal(ex);
-                                }
-                            }
-                            double[] rs_u_in = fft.getOriginData_U();
-                            double[] rs_n_in = fft.getOriginData_N();
-                            double[] rs_e_in = fft.getOriginData_E();
-
-                            for (int i = 0; i < rs_u_in.length;i++) {
-                                rs_u_in[i] = rs_u_in[i]*g;
-                                rs_n_in[i] = rs_n_in[i]*g;
-                                rs_e_in[i] = rs_e_in[i]*g;
-                            }
-                            double damping_ratio = 5D;//5%
-                            double sample_rate = 1D/fft.getSampleRate().doubleValue();// in secs
-                            double period = 5;//10 secs
-                            Response_Spectrum_Calculator rsc = new Response_Spectrum_Calculator();
-                            double[] result_u_Sa = rsc.get_Acc_Response_Spectrum(rs_u_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
-                            double[] result_u_Sv = rsc.get_Velocity_Response_Spectrum();
-                            double u_PGV = rsc.getPGV(rs_u_in);
-                            //System.out.println(fft.getPGA_U()+"/"+u_PGV);
-                            double[] result_n_Sa = rsc.get_Acc_Response_Spectrum(rs_n_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
-                            double[] result_n_Sv = rsc.get_Velocity_Response_Spectrum();
-                            double n_PGV = rsc.getPGV(rs_n_in);
-                            //System.out.println(fft.getPGA_N()+"/"+n_PGV);
-                            double[] result_e_Sa = rsc.get_Acc_Response_Spectrum(rs_e_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
-                            double[] result_e_Sv = rsc.get_Velocity_Response_Spectrum();
-                            double e_PGV = rsc.getPGV(rs_e_in);
-                            //System.out.println(fft.getPGA_E()+"/"+e_PGV);
-                            //regular Ca
-                            for (int i = 0; i < result_u_Sa.length;i++) {
-                                result_u_Sa[i] = result_u_Sa[i]/Math.abs(fft.getPGA_U().doubleValue());
-                                result_n_Sa[i] = result_n_Sa[i]/Math.abs(fft.getPGA_N().doubleValue());
-                                result_e_Sa[i] = result_e_Sa[i]/Math.abs(fft.getPGA_E().doubleValue());
-                                
-                                result_u_Sv[i] = result_u_Sv[i]/u_PGV;
-                                result_n_Sv[i] = result_n_Sv[i]/n_PGV;
-                                result_e_Sv[i] = result_e_Sv[i]/e_PGV;
-                            }
-                            //System.out.println(period/sample_rate);
-                            //if Ca >=2.5 add in the list
-                            
-                            y_U_Sa_list.add(result_u_Sa);
-                            y_N_Sa_list.add(result_n_Sa);
-                            y_E_Sa_list.add(result_e_Sa);
-                            
-                            y_U_Sv_list.add(result_u_Sv);
-                            y_N_Sv_list.add(result_n_Sv);
-                            y_E_Sv_list.add(result_e_Sv);
-                            
-                            x_axis.add(rsc.getT());
-
-                        } catch (FileNotFoundException ex) {
-                            Logger.getLogger(FX_Main_Controller.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (IOException ex) {
-                            Logger.getLogger(FX_Main_Controller.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    });
-                    //find min period length
-                    double T_min_value = 2500;
-                    int T_min_pos = 0;// 5/0.004
-                    for (int i = 0 ; i < x_axis.size() ; i++) {
-                        if (x_axis.get(i).length < T_min_value) {
-                            T_min_value = x_axis.get(i).length;
-                            T_min_pos = i;
-                        }
-                    }
-                    
-                    int data_lenght = x_axis.get(T_min_pos).length;
-
-                    //double[] U_avg = new double[data_lenght];
-                    double[] NE_avg_Sa = new double[data_lenght];
-                    double[] NE_avg_Sv = new double[data_lenght];
-                    
-                    double[] y_U_std_list = new double[data_lenght];
-                    double[] y_NE_std_list = new double[data_lenght];
-                    //double[] y_E_std_list = new double[data_lenght];
-                    
-                    for (int c = 0; c < data_lenght; c++) {
-                        //List<Double> U_data = Lists.newArrayList();
-                        List<Double> NE_data_Sa = Lists.newArrayList();
-                        List<Double> NE_data_Sv = Lists.newArrayList();
-                        for (int ac = 0; ac < y_U_Sa_list.size(); ac++) {
-                            //U_data.add(y_U_list.get(ac)[c]);
-                            NE_data_Sa.add(y_N_Sa_list.get(ac)[c]);
-                            NE_data_Sa.add(y_E_Sa_list.get(ac)[c]);
-                            
-                            NE_data_Sv.add(y_N_Sv_list.get(ac)[c]);
-                            NE_data_Sv.add(y_E_Sv_list.get(ac)[c]);
-                        }
-                        //U_avg[c] = U_data.parallelStream().mapToDouble(u -> Math.abs(u)).average().getAsDouble();
-                        NE_avg_Sa[c] = NE_data_Sa.parallelStream().mapToDouble(ne -> Math.abs(ne)).average().getAsDouble();
-                        
-                        double[] stddev = calculateSD(NE_data_Sv);
-                        NE_avg_Sv[c] = stddev[0]+stddev[1];
-                        /*
-                        System.out.println(NE_avg_Sv[c]);
-                        System.out.println(Arrays.toString(stddev));
-                        System.out.println(sv_temp);*/
-                        
-                    }
-                                        
-                    //get avg spectrum
-                    
-                    //calc range
-                    List<Double> Sa_range = Lists.newLinkedList();
-                    List<Double> Sv_range = Lists.newLinkedList();
-                    
-                    
-                    //find max
-                    double ne_acc_max_value = 0;
-                    int NE_max_pos = 0;
-                    for (int i = 0 ; i < NE_avg_Sa.length ; i++) {
-                        if (NE_avg_Sa[i] >= 2.5D) {
-                            Sa_range.add(i*x_axis.get(0)[1]);
-                        }
-                        
-                        if (NE_avg_Sv[i] >= 2.5D) {
-                            Sv_range.add(i*x_axis.get(0)[1]);
-                        }
-                        
-                        if (NE_avg_Sa[i] > ne_acc_max_value) {
-                            ne_acc_max_value = NE_avg_Sa[i];
-                            NE_max_pos = i;
-                        }
-                    }
-                    double RS_ne = NE_max_pos*x_axis.get(0)[1];
-                            
-                    //XYChart acc_chart_u = QuickChart.getChart(st_name+" Design Spectrum: sec", "Period(sec)", "Cv", "U avg Axis", x_axis.get(0), U_avg);
-                    
-                    //if (Sa_range.size() > 0) {
-                        //XYChart acc_chart_ne = QuickChart.getChart(st_name+" Ca: "+Configs.df.format(Sa_range.get(0))+" ~ "+ Configs.df.format(Sa_range.get(Sa_range.size()-1)) +" sec", "Period(sec)", "Sa", "NE avg Axis", x_axis.get(T_min_pos), NE_avg_Sa);
-                        XYChart acc_chart_ne = QuickChart.getChart(st_name+" Ca: "+Configs.df.format(ne_acc_max_value)+" times", "Period(sec)", "Sa", "NE avg Axis", x_axis.get(T_min_pos), NE_avg_Sa);
-                        acc_chart_ne.getStyler().setXAxisMax(5D);
-                        BitmapEncoder.saveBitmap(acc_chart_ne, Utils.get_MainPath()+"/Sa_"+st_name+"_NE.png", BitmapEncoder.BitmapFormat.PNG);
-                    //}
-                    
-                    //log T
-                    double[] time = x_axis.get(T_min_pos);
-                    int low_limit_pos = 0;
-                    double low_limit_val = 0;
-                    int pgv_pos = 0;
-                    double pgv_val = 0;
-                    
-                                                
-                    
-                    double step = x_axis.get(T_min_pos)[1];
-                    //System.out.println(step);
-                    for (int i = 0 ; i < NE_avg_Sv.length ; i++) {
-                        /*
-                        if (x_axis.get(T_min_pos)[i] - 0.01D <= step) {
-                            leg_sa_start = i;
-                        }
-                        
-                        if (x_axis.get(T_min_pos)[i] - 0.3D <= step) {
-                            leg_03 = i;
-                        }
-                        if (x_axis.get(T_min_pos)[i] - 1D <= step) {
-                            leg_10 = i;
-                        }*/
-                        
-                        
-                        if (NE_avg_Sv[i] > 0) {
-                            double log_temp = Math.log10(NE_avg_Sv[i]);
-                            /*
-                            if (log_temp < 0) {
-                                log_temp = 0;
-                            }*/
-                            NE_avg_Sv[i] = log_temp;
-                        }
-                        if (time[i] > 0) {
-                            double log_temp = Math.log10(time[i]);
-                            /*
-                            if (log_temp < 0) {
-                                log_temp = 0;
-                            }*/
-                            time[i] = log_temp;
-                        }
-                        //find min
-                        if (NE_avg_Sv[i] < low_limit_val) {
-                            low_limit_val = NE_avg_Sv[i];
-                            low_limit_pos = i;
-                        }
-                        if (NE_avg_Sv[i] > pgv_val) {
-                            pgv_val = NE_avg_Sv[i];
-                            pgv_pos = i;
-                        }
-                    }
-                    //
-                    //find peak
-                    PeakFinder pf = new PeakFinder(x_axis.get(T_min_pos), NE_avg_Sv);
-                    pf.calc_peak_pos();
-                    int leg_sa_start = 0;
-                    int leg_sa_end = 0;
-                    if (pf.get_peak_pos().size() > 1) {
-                        leg_sa_start = pf.get_peak_pos().get(0);//first peak
-                        leg_sa_end = pf.get_peak_pos().get(Math.min(1, Math.max(1, pf.get_peak_pos().size()/5)));
-                        if (leg_sa_start >= leg_sa_end) {
-                            leg_sa_start = 2;//0.01 sec
-                        }
-                    } else {
-                        leg_sa_start = 2;
-                        leg_sa_end = pf.get_peak_pos().get(0);
-                    }
-                    
-                    int leg_sv_start = 0;
-                    int leg_sv_end = 0;
-                    Map<Integer, Double> peak_map = Maps.newLinkedHashMap();
-                    for (int c = 0; c < pf.get_peak_pos().size(); c++) {
-                        int pos = pf.get_peak_pos().get(c);
-                        peak_map.put(pos, NE_avg_Sv[pos]);
-                    }
-                    //sor map by value
-                    Map<Integer, Double> sv_peak_map = peak_map.entrySet().stream().sorted(comparingByValue(Comparator.reverseOrder())).collect(toMap(e -> e.getKey(), e -> e.getValue(), (e1, e2) -> e2, LinkedHashMap::new));
-                    List<Integer> peak_list = Lists.newLinkedList();
-                    int count = 0;
-                    int leg = Math.max((int)(sv_peak_map.size()*0.4D),2);
-                    //System.out.println(leg);
-                    for (Map.Entry<Integer, Double> entry : sv_peak_map.entrySet()) {
-                        if (count == leg) {
-                            break;
-                        } else {//2~750
-                            if (entry.getKey() > 2 && entry.getKey() < 750) {
-                                peak_list.add(entry.getKey());
-                                //System.out.println(entry.getKey());
-                                count ++;
-                            }
-                        }
-                    }
-                    int sv_peak_max_pos = peak_list.get(0);
-                    Collections.sort(peak_list);
-                    //System.out.println(peak_list.size());
-                    int mid_pos = peak_list.indexOf(sv_peak_max_pos);
-                    if (peak_list.size() >= 3) {
-                        leg_sv_start = peak_list.get(0);
-                        leg_sv_end = peak_list.get(2);
-                        /*
-                        if (mid_pos > 0 && mid_pos != peak_list.size()-1) {
-                            leg_sv_start = peak_list.get(mid_pos-1);
-                            leg_sv_end = peak_list.get(mid_pos+1);
-                        }
-                        if (mid_pos == 0) {
-                            leg_sv_start = peak_list.get(mid_pos);
-                            leg_sv_end = peak_list.get(mid_pos+2);
-                        }
-                        if (mid_pos == peak_list.size()-1) {
-                            leg_sv_start = peak_list.get(mid_pos-2);
-                            leg_sv_end = peak_list.get(mid_pos);
-                        }*/
-                    } else if (peak_list.size() > 1 && peak_list.size() < 3){
-                        leg_sv_start = peak_list.get(0);
-                        leg_sv_end = peak_list.get(1);
-                    } else if (peak_list.size() < 2){
-                        leg_sv_start = peak_list.get(mid_pos)-20;//0.1 secs
-                        leg_sv_end = peak_list.get(mid_pos)+20;//0.1 secs
-                    }
-                    double slope = Math.abs((NE_avg_Sv[peak_list.get(mid_pos)] - NE_avg_Sv[leg_sv_end])/
-                            (Math.log10(peak_list.get(mid_pos)*step)-Math.log10(leg_sv_end*step)));
-                    
-                    //System.out.println(slope);
-                    if (slope >= 0.1D) {
-                        leg_sv_start = peak_list.get(mid_pos);
-                        leg_sv_end = leg_sv_start+30;
-                    }
-                    if (slope >= 0.2D) {
-                        leg_sv_start = peak_list.get(mid_pos);
-                        leg_sv_end = leg_sv_start+20;
-                    }
-                    if (slope >= 0.3D) {
-                        leg_sv_start = peak_list.get(mid_pos);
-                        leg_sv_end = leg_sv_start+10;
-                    }
-                    if (slope >= 0.6D) {
-                        leg_sv_start = peak_list.get(mid_pos);
-                        leg_sv_end = leg_sv_start+3;
-                    }
-                    
-                    if (leg_sv_start > leg_sv_end) {
-                        int temp_s = leg_sv_start;
-                        int temp_e = leg_sv_end;
-                        leg_sv_start = temp_e;
-                        leg_sv_end = temp_s;
-                    }
-                    
-                    /*
-                    leg_sv_start = peak_list.get(0);
-                    leg_sv_end = peak_list.get(2);*/
-                    int peak_leg_sa_start = 2;
-                    int peak_leg_sa_end = peak_list.get(mid_pos);
-                                        
-                    //leg_sa_end = Math.min(leg_sa_end, leg_sv_start);
-                    
-                    //find min and del forward
-                    //from 0.01 sec
-                                        
-                    double[] sa_time_new_peak = Arrays.copyOfRange(time, peak_leg_sa_start, peak_leg_sa_end);
-                    double[] sa_NE_avg_Sv_new_peak = Arrays.copyOfRange(NE_avg_Sv, peak_leg_sa_start, peak_leg_sa_end);
-                    
-                    double[] sa_time_new_nonepeak = Arrays.copyOfRange(time, leg_sa_start, leg_sa_end);
-                    double[] sa_NE_avg_Sv_new_nonepeak = Arrays.copyOfRange(NE_avg_Sv, leg_sa_start, leg_sa_end);
-                    
-                    //find Cv range
-                    double[] sv_time_new = Arrays.copyOfRange(time, leg_sv_start, leg_sv_end);
-                    double[] sv_NE_avg_Sv_new = Arrays.copyOfRange(NE_avg_Sv, leg_sv_start, leg_sv_end);
-                    
-                    //display
-                    double[] time_new = Arrays.copyOfRange(time, low_limit_pos, time.length);
-                    double[] NE_avg_Sv_new = Arrays.copyOfRange(NE_avg_Sv, low_limit_pos, NE_avg_Sv.length);
-                    
-                    
-                    //calc T0
-                    double T0 = 0;
-                    double point_y = 0;
-                    double nonepeak_constant = 0;
-                    double peak_constant = 0;
-                    double constant = 0;
-                    
-                    if (sa_time_new_peak.length > 1) {
-                        RegressionModel model_sa = new LinearRegressionModel(sa_time_new_peak, sa_NE_avg_Sv_new_peak);
-                        model_sa.fix_slope(1D);
-                        model_sa.compute();  
-                        double[] coefficients_sa = model_sa.getCoefficients();
-                        peak_constant = coefficients_sa[0];
-                        //System.out.println(coefficients[0] + "," + coefficients[1]);
-                    }
-                    if (sa_time_new_nonepeak.length > 1) {
-                        RegressionModel model_sa = new LinearRegressionModel(sa_time_new_nonepeak, sa_NE_avg_Sv_new_nonepeak);
-                        model_sa.fix_slope(1D);
-                        model_sa.compute();  
-                        double[] coefficients_sa = model_sa.getCoefficients();
-                        nonepeak_constant = coefficients_sa[0];
-                        //System.out.println(coefficients[0] + "," + coefficients[1]);
-                    }
-                    constant = Math.max(peak_constant, nonepeak_constant);
-                    
-                    if (sv_time_new.length > 1) {
-                        RegressionModel model_sv = new LinearRegressionModel(sv_time_new, sv_NE_avg_Sv_new);
-                        model_sv.fix_slope(0D);
-                        model_sv.compute();
-                        double[] coefficients_sv = model_sv.getCoefficients();
-                        point_y = coefficients_sv[0];
-                        //System.out.println(coefficients_sv[0] + "," + coefficients_sv[1]);
-                        T0 = Math.pow(10D,point_y-constant);
-                        System.out.println(st_name+": "+Configs.coord_df.format(T0)+" Ca: "+Configs.coord_df.format(ne_acc_max_value)+ " : "+leg_sv_start+", "+leg_sv_end+": "+slope);
-                    }
-                    
-                    //if (Sv_range.size() > 0) {
-                        //XYChart vel_chart_ne = QuickChart.getChart(st_name+" Design Spectrum: "+Configs.df.format(Sv_range.get(0))+" ~ "+ Configs.df.format(Sv_range.get(Sv_range.size()-1)) +" sec", "Period(sec)", "Sv", "NE avg Axis", x_axis.get(T_min_pos), NE_avg_Sv);
-                        XYChart vel_chart_ne = new XYChart(800, 600);
-                        vel_chart_ne.setTitle(st_name+" T0: "+ Configs.df.format(T0)+" sec  y: " + Configs.df.format(point_y)+" const: "+Configs.df.format(constant));
-                        vel_chart_ne.setXAxisTitle("Log T(sec)");
-                        vel_chart_ne.setYAxisTitle("Log(Sv)");
-                        double[] peak_t = new double[sv_peak_map.size()];
-                        double[] peak_val = new double[sv_peak_map.size()];
-                        int p_count = 0;
-                        for (Map.Entry<Integer, Double> entry : sv_peak_map.entrySet()) {
-                            if (entry.getKey() < time_new.length) {
-                                peak_t[p_count] = time_new[entry.getKey()];
-                                peak_val[p_count] = 2;
-                                p_count++;
-                            }
-                        }
-                        vel_chart_ne.addSeries("peak", peak_t, peak_val).setMarker(SeriesMarkers.TRIANGLE_UP).setLineStyle(SeriesLines.NONE);
-                        
-                        vel_chart_ne.addSeries("NE avg Axis", time_new, NE_avg_Sv_new).setMarker(SeriesMarkers.NONE);
-                        double[] sv_t = {-2,2};
-                        double[] sv_val = {point_y, point_y};
-                        vel_chart_ne.addSeries("Log(Sv) y = "+Configs.df.format(point_y), sv_t, sv_val).setMarker(SeriesMarkers.NONE);
-                        double max_x = 1.5D;
-                        /*
-                        if (max_x + constant < point_y) {
-                            max_x = point_y+1D;
-                        }*/
-                        double[] sa_t = {-2,max_x};
-                        double[] sa_peak_val = {-2+peak_constant, max_x+peak_constant};
-                        double[] sa_nonepeak_val = {-2+nonepeak_constant, max_x+nonepeak_constant};
-                        vel_chart_ne.addSeries("Log(Sv) slope = 1 peak", sa_t, sa_peak_val).setMarker(SeriesMarkers.NONE);
-                        vel_chart_ne.addSeries("Log(Sv) slope = 1 nonepeak", sa_t, sa_nonepeak_val).setMarker(SeriesMarkers.NONE);
-                        
-                        vel_chart_ne.getStyler().setXAxisMax(2D);
-                        vel_chart_ne.getStyler().setXAxisMin(-2D);
-                        BitmapEncoder.saveBitmap(vel_chart_ne, Utils.get_MainPath()+"/Vel_"+st_name+"_NE.png", BitmapEncoder.BitmapFormat.PNG);
-                    //}
-                    // Show it
-                    //acc_chart_u.getStyler().setXAxisMax(5D);
-                    
-                    
-
-                    //BitmapEncoder.saveBitmap(acc_chart_u, Utils.get_MainPath()+"/"+st_name+"_U.png", BitmapEncoder.BitmapFormat.PNG);
-                    
-                    
-                    
-
-                    //new SwingWrapper(acc_chart_u).displayChart();
-                    //new SwingWrapper(acc_chart_ne).displayChart();
-                } catch (IOException ex) {
-                    Logger.getLogger(FX_Main_Controller.class.getName()).log(Level.SEVERE, null, ex);
-                }
+            if (dm.getValue().size() > 4) { //4
+                //if (dm.getKey().equals("TAP002")) {
+                T0_Calculator strong_t0c = new T0_Calculator(dm.getValue(), 0, dm.getValue().size(), null);
+                strong_t0c.calculate();
             }
             
         });
@@ -1394,246 +924,191 @@ public class FX_Main_Controller implements Initializable {
         System.out.println(Utils.get_seismic_map().size());
         
         double g = 9806.665D;
-        /*
-        double[] elc  = {0.0063,0.00364,0.00099,0.00428,0.00758,0.01087,0.00682,0.00277,-0.00128,0.00368,0.00864,0.0136,0.00727,0.00094,0.0042,0.00221,0.00021,0.00444,0.00867,0.0129,0.01713,-0.00343,-0.024,-0.00992,0.00416,0.00528,0.01653,0.02779,0.03904,0.02449,0.00995,0.00961,0.00926,0.00892,-0.00486,-0.01864,-0.03242,-0.03365,-0.05723,-0.04534,-0.03346,-0.03201,-0.03056,-0.02911,-0.02766,-0.04116,-0.05466,-0.06816,-0.08166,-0.06846,-0.05527,-0.04208,-0.04259,-0.04311,-0.02428,-0.00545,0.01338,0.03221,0.05104,0.06987,0.0887,0.04524,0.00179,-0.04167,-0.08513,-0.12858,-0.17204,-0.12908,-0.08613,-0.08902,-0.09192,-0.09482,-0.09324,-0.09166,-0.09478,-0.09789,-0.12902,-0.07652,-0.02401,0.02849,0.08099,0.1335,0.186,0.2385,0.21993,0.20135,0.18277,0.1642,0.14562,0.16143,0.17725,0.13215,0.08705,0.04196,-0.00314,-0.04824,-0.09334,-0.13843,-0.18353,-0.22863,-0.27372,-0.31882,-0.25024,-0.18166,-0.11309,-0.04451,0.02407,0.09265,0.16123,0.22981,0.29839,0.23197,0.16554,0.09912,0.0327,-0.03372,-0.10014,-0.16656,-0.23299,-0.29941,-0.00421,0.29099,0.2238,0.15662,0.08943,0.02224,-0.04495,0.01834,0.08163,0.14491,0.2082,0.18973,0.17125,0.13759,0.10393,0.07027,0.03661,0.00295,-0.03071,-0.00561,0.01948,0.04458,0.06468,0.08478,0.10487,0.05895,0.01303,-0.03289,-0.07882,-0.03556,0.00771,0.05097,0.01013,-0.03071,-0.07156,-0.1124,-0.15324,-0.11314,-0.07304,-0.03294,0.00715,-0.0635,-0.13415,-0.2048,-0.12482,-0.04485,0.03513,0.1151,0.19508,0.12301,0.05094,-0.02113,-0.0932,-0.02663,0.03995,0.10653,0.17311,0.11283,0.05255,-0.00772,0.01064,0.029,0.04737,0.06573,0.02021,-0.0253,-0.07081,-0.04107,-0.01133,0.00288,0.01709,0.03131,-0.02278,-0.07686,-0.13095,-0.18504,-0.14347,-0.1019,-0.06034,-0.01877,0.0228,-0.00996,-0.04272,-0.02147,-0.00021,0.02104,-0.01459,-0.05022,-0.08585,-0.12148,-0.15711,-0.19274,-0.22837,-0.18145,-0.13453,-0.08761,-0.04069,0.00623,0.05316,0.10008,0.147,0.09754,0.04808,-0.00138,0.05141,0.1042,0.15699,0.20979,0.26258,0.16996,0.07734,-0.01527,-0.10789,-0.20051,-0.06786,0.06479,0.01671,-0.03137,-0.07945,-0.12753,-0.17561,-0.22369,-0.27177,-0.15851,-0.04525,0.06802,0.18128,0.14464,0.108,0.07137,0.03473,0.09666,0.1586,0.22053,0.18296,0.14538,0.1078,0.07023,0.03265,0.06649,0.10033,0.13417,0.10337,0.07257,0.04177,0.01097,-0.01983,0.04438,0.1086,0.17281,0.10416,0.03551,-0.03315,-0.1018,-0.07262,-0.04344,-0.01426,0.01492,-0.02025,-0.05543,-0.0906,-0.12578,-0.16095,-0.19613,-0.14784,-0.09955,-0.05127,-0.00298,-0.01952,-0.03605,-0.05259,-0.04182,-0.03106,-0.02903,-0.02699,0.02515,0.0177,0.02213,0.02656,0.00419,-0.01819,-0.04057,-0.06294,-0.02417,0.0146,0.05337,0.02428,-0.0048,-0.03389,-0.00557,0.02274,0.00679,-0.00915,-0.02509,-0.04103,-0.05698,-0.01826,0.02046,0.00454,-0.01138,-0.00215,0.00708,0.00496,0.00285,0.00074,-0.00534,-0.01141,0.00361,0.01863,0.03365,0.04867,0.0304,0.01213,-0.00614,-0.02441,0.01375,0.01099,0.00823,0.00547,0.00812,0.01077,-0.00692,-0.02461,-0.0423,-0.05999,-0.07768,-0.09538,-0.06209,-0.0288,0.00448,0.03777,0.01773,-0.00231,-0.02235,0.01791,0.05816,0.03738,0.0166,-0.00418,-0.02496,-0.04574,-0.02071,0.00432,0.02935,0.01526,0.01806,0.02086,0.00793,-0.00501,-0.01795,-0.03089,-0.01841,-0.00593,0.00655,-0.02519,-0.05693,-0.04045,-0.02398,-0.0075,0.00897,0.00384,-0.00129,-0.00642,-0.01156,-0.02619,-0.04082,-0.05545,-0.04366,-0.03188,-0.06964,-0.05634,-0.04303,-0.02972,-0.01642,-0.00311,0.0102,0.0235,0.03681,0.05011,0.02436,-0.00139,-0.02714,-0.00309,0.02096,0.04501,0.06906,0.05773,0.0464,0.03507,0.03357,0.03207,0.03057,0.0325,0.03444,0.03637,0.01348,-0.00942,-0.03231,-0.02997,-0.03095,-0.03192,-0.02588,-0.01984,-0.01379,-0.00775,-0.01449,-0.02123,0.01523,0.0517,0.08816,0.12463,0.16109,0.12987,0.09864,0.06741,0.03618,0.00495,0.0042,0.00345,0.00269,-0.05922,-0.12112,-0.18303,-0.12043,-0.05782,0.00479,0.0674,0.13001,0.08373,0.03745,0.06979,0.10213,-0.03517,-0.17247,-0.13763,-0.10278,-0.06794,-0.0331,-0.03647,-0.03984,-0.00517,0.0295,0.06417,0.09883,0.1335,0.05924,-0.01503,-0.08929,-0.16355,-0.06096,0.04164,0.01551,-0.01061,-0.03674,-0.06287,-0.08899,-0.0543,-0.01961,0.01508,0.04977,0.08446,0.05023,0.016,-0.01823,-0.05246,-0.08669,-0.06769,-0.0487,-0.0297,-0.01071,0.00829,-0.00314,0.02966,0.06246,-0.00234,-0.06714,-0.04051,-0.01388,0.01274,0.00805,0.03024,0.05243,0.02351,-0.00541,-0.03432,-0.06324,-0.09215,-0.12107,-0.0845,-0.04794,-0.01137,0.0252,0.06177,0.04028,0.0188,0.04456,0.07032,0.09608,0.12184,0.0635,0.00517,-0.05317,-0.03124,-0.0093,0.01263,0.03457,0.03283,0.03109,0.02935,0.04511,0.06087,0.07663,0.09239,0.05742,0.02245,-0.01252,0.0068,0.02611,0.04543,0.01571,-0.01402,-0.04374,-0.07347,-0.0399,-0.00633,0.02724,0.0608,0.03669,0.01258,-0.01153,-0.03564,-0.00677,0.0221,0.05098,0.07985,0.06915,0.05845,0.04775,0.03706,0.02636,0.05822,0.09009,0.12196,0.10069,0.07943,0.05816,0.03689,0.01563,-0.00564,-0.0269,-0.04817,-0.06944,-0.0907,-0.11197,-0.11521,-0.11846,-0.1217,-0.12494,-0.165,-0.20505,-0.15713,-0.10921,-0.06129,-0.01337,0.03455,0.08247,0.07576,0.06906,0.06236,0.08735,0.11235,0.13734,0.12175,0.10616,0.09057,0.07498,0.08011,0.08524,0.09037,0.06208,0.03378,0.00549,-0.02281,-0.05444,-0.0403,-0.02615,-0.01201,-0.02028,-0.02855,-0.06243,-0.03524,-0.00805,-0.04948,-0.03643,-0.02337,-0.03368,-0.01879,-0.00389,0.011,0.02589,0.01446,0.00303,-0.0084,0.00463,0.01766,0.03069,0.04372,0.02165,-0.00042,-0.02249,-0.04456,-0.03638,-0.02819,-0.02001,-0.01182,-0.02445,-0.03707,-0.04969,-0.05882,-0.06795,-0.07707,-0.0862,-0.09533,-0.06276,-0.03018,0.00239,0.03496,0.04399,0.05301,0.03176,0.01051,-0.01073,-0.03198,-0.05323,0.00186,0.05696,0.01985,-0.01726,-0.05438,-0.01204,0.03031,0.07265,0.11499,0.07237,0.02975,-0.01288,0.01212,0.03711,0.03517,0.03323,0.01853,0.00383,0.00342,-0.02181,-0.04704,-0.07227,-0.0975,-0.12273,-0.08317,-0.04362,-0.00407,0.03549,0.07504,0.1146,0.07769,0.04078,0.00387,0.00284,0.00182,-0.05513,0.04732,0.05223,0.05715,0.06206,0.06698,0.07189,0.02705,-0.01779,-0.06263,-0.10747,-0.15232,-0.12591,-0.0995,-0.07309,-0.04668,-0.02027,0.00614,0.03255,0.00859,-0.01537,-0.03932,-0.06328,-0.03322,-0.00315,0.02691,0.01196,-0.003,0.00335,0.0097,0.01605,0.02239,0.04215,0.06191,0.08167,0.03477,-0.01212,-0.01309,-0.01407,-0.05274,-0.02544,0.00186,0.02916,0.05646,0.08376,0.01754,-0.04869,-0.02074,0.00722,0.03517,-0.00528,-0.04572,-0.08617,-0.0696,-0.05303,-0.03646,-0.01989,-0.00332,0.01325,0.02982,0.01101,-0.00781,-0.02662,-0.00563,0.01536,0.03635,0.05734,0.03159,0.00584,-0.01992,-0.00201,0.01589,-0.01024,-0.03636,-0.06249,-0.0478,-0.03311,-0.04941,-0.0657,-0.082,-0.0498,-0.0176,0.0146,0.0468,0.079,0.0475,0.016,-0.0155,-0.00102,0.01347,0.02795,0.04244,0.05692,0.03781,0.0187,-0.00041,-0.01952,-0.00427,0.01098,0.02623,0.04148,0.01821,-0.00506,-0.00874,-0.03726,-0.06579,-0.026,0.0138,0.05359,0.09338,0.05883,0.02429,-0.01026,-0.0448,-0.01083,-0.01869,-0.02655,-0.03441,-0.02503,-0.01564,-0.00626,-0.01009,-0.01392,0.0149,0.04372,0.03463,0.02098,0.00733,-0.00632,-0.01997,0.00767,0.03532,0.03409,0.03287,0.03164,0.02403,0.01642,0.00982,0.00322,-0.00339,0.02202,-0.01941,-0.06085,-0.10228,-0.07847,-0.05466,-0.03084,-0.00703,0.01678,0.01946,0.02214,0.02483,0.01809,-0.00202,-0.02213,-0.00278,0.01656,0.0359,0.05525,0.07459,0.06203,0.04948,0.03692,-0.00145,0.04599,0.04079,0.03558,0.03037,0.03626,0.04215,0.04803,0.05392,0.04947,0.04502,0.04056,0.03611,0.03166,0.00614,-0.01937,-0.04489,-0.0704,-0.09592,-0.07745,-0.05899,-0.04052,-0.02206,-0.00359,0.01487,0.01005,0.00523,0.00041,-0.00441,-0.00923,-0.01189,-0.01523,-0.01856,-0.0219,-0.00983,0.00224,0.01431,0.00335,-0.0076,-0.01856,-0.00737,0.00383,0.01502,0.02622,0.01016,-0.0059,-0.02196,-0.00121,0.01953,0.04027,0.02826,0.01625,0.00424,0.00196,-0.00031,-0.00258,-0.00486,-0.00713,-0.00941,-0.01168,-0.01396,-0.0175,-0.02104,-0.02458,-0.02813,-0.03167,-0.03521,-0.04205,-0.04889,-0.03559,-0.02229,-0.00899,0.00431,0.01762,0.00714,-0.00334,-0.01383,0.01314,0.04011,0.06708,0.0482,0.02932,0.01043,-0.00845,-0.02733,-0.04621,-0.03155,-0.01688,-0.00222,0.01244,0.02683,0.04121,0.05559,0.03253,0.00946,-0.0136,-0.01432,-0.01504,-0.01576,-0.04209,-0.02685,-0.01161,0.00363,0.01887,0.03411,0.03115,0.02819,0.02917,0.03015,0.03113,0.00388,-0.02337,-0.05062,-0.0382,-0.02579,-0.01337,-0.00095,0.01146,0.02388,0.03629,0.01047,-0.01535,-0.04117,-0.06699,-0.05207,-0.03715,-0.02222,-0.0073,0.00762,0.02254,0.03747,0.04001,0.04256,0.04507,0.04759,0.0501,0.04545,0.0408,0.02876,0.01671,0.00467,-0.00738,-0.00116,0.00506,0.01128,0.0175,-0.00211,-0.02173,-0.04135,-0.06096,-0.08058,-0.06995,-0.05931,-0.04868,-0.03805,-0.02557,-0.0131,-0.00063,0.01185,0.02432,0.0368,0.04927,0.02974,0.01021,-0.00932,-0.02884,-0.04837,-0.0679,-0.04862,-0.02934,-0.01006,0.00922,0.02851,0.04779,0.02456,0.00133,-0.0219,-0.04513,-0.06836,-0.04978,-0.0312,-0.01262,0.00596,0.02453,0.04311,0.06169,0.08027,0.09885,0.06452,0.03019,-0.00414,-0.03848,-0.07281,-0.05999,-0.04717,-0.03435,-0.03231,-0.03028,-0.02824,-0.00396,0.02032,0.00313,-0.01406,-0.03124,-0.04843,-0.06562,-0.05132,-0.03702,-0.02272,-0.00843,0.00587,0.02017,0.02698,0.03379,0.04061,0.04742,0.05423,0.03535,0.01647,0.01622,0.01598,0.01574,0.00747,-0.0008,-0.00907,0.00072,0.01051,0.0203,0.03009,0.03989,0.03478,0.02967,0.02457,0.03075,0.03694,0.04313,0.04931,0.0555,0.06168,-0.00526,-0.0722,-0.06336,-0.05451,-0.04566,-0.03681,-0.03678,-0.03675,-0.03672,-0.01765,0.00143,0.02051,0.03958,0.05866,0.03556,0.01245,-0.01066,-0.03376,-0.05687,-0.04502,-0.03317,-0.02131,-0.00946,0.00239,-0.00208,-0.00654,-0.01101,-0.01548,-0.012,-0.00851,-0.00503,-0.00154,0.00195,0.00051,-0.00092,0.01135,0.02363,0.0359,0.04818,0.06045,0.07273,0.02847,-0.01579,-0.06004,-0.05069,-0.04134,-0.03199,-0.03135,-0.03071,-0.03007,-0.01863,-0.00719,0.00425,0.0157,0.02714,0.03858,0.02975,0.02092,0.02334,0.02576,0.02819,0.03061,0.03304,0.01371,-0.00561,-0.02494,-0.02208,-0.01923,-0.01638,-0.01353,-0.01261,-0.0117,-0.00169,0.00833,0.01834,0.02835,0.03836,0.04838,0.03749,0.0266,0.01571,0.00482,-0.00607,-0.01696,-0.0078,0.00136,0.01052,0.01968,0.02884,-0.00504,-0.03893,-0.02342,-0.00791,0.00759,0.0231,0.00707,-0.00895,-0.02498,-0.041,-0.05703,-0.0292,-0.00137,0.02645,0.05428,0.03587,0.01746,-0.00096,-0.01937,-0.03778,-0.02281,-0.00784,0.00713,0.0221,0.03707,0.05204,0.06701,0.08198,0.03085,-0.02027,-0.0714,-0.12253,-0.08644,-0.05035,-0.01426,0.02183,0.05792,0.094,0.13009,0.03611,-0.05787,-0.04802,-0.03817,-0.02832,-0.01846,-0.00861,-0.03652,-0.06444,-0.06169,-0.05894,-0.05618,-0.06073,-0.06528,-0.04628,-0.02728,-0.00829,0.01071,0.0297,0.03138,0.03306,0.03474,0.03642,0.04574,0.05506,0.06439,0.07371,0.08303,0.03605,-0.01092,-0.0579,-0.04696,-0.03602,-0.02508,-0.01414,-0.03561,-0.05708,-0.07855,-0.06304,-0.04753,-0.03203,-0.01652,-0.00102,0.00922,0.01946,0.0297,0.03993,0.05017,0.06041,0.07065,0.08089,-0.00192,-0.08473,-0.07032,-0.0559,-0.04148,-0.05296,-0.06443,-0.0759,-0.08738,-0.09885,-0.06798,-0.0371,-0.00623,0.02465,0.05553,0.0864,0.11728,0.14815,0.08715,0.02615,-0.03485,-0.09584,-0.071,-0.04616,-0.02132,0.00353,0.02837,0.05321,-0.00469,-0.06258,-0.12048,-0.0996,-0.07872,-0.05784,-0.03696,-0.01608,0.0048,0.02568,0.04656,0.06744,0.08832,0.1092,0.13008,0.10995,0.08982,0.06969,0.04955,0.04006,0.03056,0.02107,0.01158,0.0078,0.00402,0.00024,-0.00354,-0.00732,-0.0111,-0.0078,-0.0045,-0.0012,0.0021,0.0054,-0.00831,-0.02203,-0.03575,-0.04947,-0.06319,-0.05046,-0.03773,-0.025,-0.01227,0.00046,0.00482,0.00919,0.01355,0.01791,0.02228,0.00883,-0.00462,-0.01807,-0.03152,-0.02276,-0.01401,-0.00526,0.0035,0.01225,0.02101,0.01437,0.00773,0.0011,0.00823,0.01537,0.02251,0.01713,0.01175,0.00637,0.01376,0.02114,0.02852,0.03591,0.04329,0.03458,0.02587,0.01715,0.00844,-0.00027,-0.00898,-0.00126,0.00645,0.01417,0.02039,0.02661,0.03283,0.03905,0.04527,0.03639,0.0275,0.01862,0.00974,0.00086,-0.01333,-0.02752,-0.04171,-0.02812,-0.01453,-0.00094,0.01264,0.02623,0.0169,0.00756,-0.00177,-0.01111,-0.02044,-0.02977,-0.03911,-0.02442,-0.00973,0.00496,0.01965,0.03434,0.02054,0.00674,-0.00706,-0.02086,-0.03466,-0.02663,-0.0186,-0.01057,-0.00254,-0.00063,0.00128,0.00319,0.0051,0.00999,0.01488,0.00791,0.00093,-0.00605,0.00342,0.01288,0.02235,0.03181,0.04128,0.02707,0.01287,-0.00134,-0.01554,-0.02975,-0.04395,-0.03612,-0.02828,-0.02044,-0.0126,-0.00476,0.00307,0.01091,0.00984,0.00876,0.00768,0.00661,0.01234,0.01807,0.0238,0.02953,0.03526,0.02784,0.02042,0.013,-0.03415,-0.00628,-0.00621,-0.00615,-0.00609,-0.00602,-0.00596,-0.0059,-0.00583,-0.00577,-0.00571,-0.00564,-0.00558,-0.00552,-0.00545,-0.00539,-0.00532,-0.00526,-0.0052,-0.00513,-0.00507,-0.00501,-0.00494,-0.00488,-0.00482,-0.00475,-0.00469,-0.00463,-0.00456,-0.0045,-0.00444,-0.00437,-0.00431,-0.00425,-0.00418,-0.00412,-0.00406,-0.00399,-0.00393,-0.00387,-0.0038,-0.00374,-0.00368,-0.00361,-0.00355,-0.00349,-0.00342,-0.00336,-0.0033,-0.00323,-0.00317,-0.00311,-0.00304,-0.00298,-0.00292,-0.00285,-0.00279,-0.00273,-0.00266,-0.0026,-0.00254,-0.00247,-0.00241,-0.00235,-0.00228,-0.00222,-0.00216,-0.00209,-0.00203,-0.00197,-0.0019,-0.00184,-0.00178,-0.00171,-0.00165,-0.00158,-0.00152,-0.00146,-0.00139,-0.00133,-0.00127,-0.0012,-0.00114,-0.00108,-0.00101,-0.00095,-0.00089,-0.00082,-0.00076,-0.0007,-0.00063,-0.00057,-0.00051,-0.00044,-0.00038,-0.00032,-0.00025,-0.00019,-0.00013,-6.00E-05,0,0};
-        for (int i = 0; i < elc.length;i++) {
-            elc[i] = elc[i]*9810D;
-        }*/
+        
         List<String[]> result_list = Lists.newLinkedList();
-        //Set<String> basin_set = Sets.newHashSet("TAP095","TAP005","TAP006","TAP007","TAP010","TAP013","TAP015","TAP017","TAP109","TAP088","TAP022","TAP021","TAP020","TAP100","TAP097","TAP032","TAP115","TAP043","TAP053");
-        //Set<String> basin_set = Sets.newHashSet("MTN118","TAP004","TAP005","TAP087","TAP120","MTN120","TAP003","TAP010","TAP011","TAP016","TAP017","TAP120","TAP037","TAP013","TAP014");
-        //Set<String> basin_set = Sets.newHashSet("TAP006","TAP007","TAP008","TAP092","TAP012","TAP102","TAP022","TAP021","TAP020","TAP018","TAP110","TAP024","TAP023","TAP038","TAP043","TAP026","TAP027","TAP028","TAP101","TAP067");
         
         //Configs.Work_Pool.submit(() -> {
             path.parallelStream().forEach(f_path -> {
                 try {
                     double vs30_predict = 0;
-                    BufferedReader f_br = null;
-                    String f_sCurrentLine = null;
-                    int eff_count = 0;
-                    f_br = new BufferedReader(new FileReader(f_path));
+
                     FFT fft = new FFT();
-                    fft.setSeismic_StartTime_from_path(f_path);
-                    fft.setFilePath(Paths.get(f_path).getParent().toString());
-                    fft.setFileName(Paths.get(f_path).getFileName().toString());
-                    while((f_sCurrentLine = f_br.readLine()) != null) {
-                        String temp_str = f_sCurrentLine;
-                        if (temp_str.startsWith("#")) {
-                            if (temp_str.contains("Code")) {
-                                eff_count++;
-                                fft.setStationCode(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            }
-                            if (temp_str.contains("Kind")) {
-                                eff_count++;
-                                fft.setInstrumentKind(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            }
-                            if (temp_str.contains("StartTime")) {
-                                eff_count++;
-                                String mod = temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim();
-                                mod = mod.replace("-", " ");
-                                fft.setAccelerometer_StartTime(mod);
-                            }
-                            if (temp_str.contains("sec")) {
-                                eff_count++;
-                                fft.setRecordLength(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            }
-                            if (temp_str.contains("Hz")) {
-                                eff_count++;
-                                fft.setSampleRate(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                                fft.initDataArray(fft.getRecordLength().multiply(fft.getSampleRate()).intValue(), 4);
-                            }
-                        } else {//stage 2
-                            fft.setArrayO(temp_str);
+                    fft.load_data_from_source(f_path);
+                    
+                    double[] rs_u_in = fft.getOriginData_U();
+                    double[] rs_n_in = fft.getOriginData_N();
+                    double[] rs_e_in = fft.getOriginData_E();
+
+
+                    for (int i = 0; i < rs_u_in.length;i++) {
+                        rs_u_in[i] = rs_u_in[i]*g;
+                        rs_n_in[i] = rs_n_in[i]*g;
+                        rs_e_in[i] = rs_e_in[i]*g;
+                    }
+                    double damping_ratio = 5D;//5%
+                    double sample_rate = 1D/fft.getSampleRate().doubleValue();// in secs
+                    double period = Math.min(fft.getRecordLength().doubleValue()/2D, 20);//20
+                    Response_Spectrum_Calculator rsc = new Response_Spectrum_Calculator();
+                    double[] result_u = rsc.get_Acc_Response_Spectrum(rs_u_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
+                    double[] result_n = rsc.get_Acc_Response_Spectrum(rs_n_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
+                    double[] result_e = rsc.get_Acc_Response_Spectrum(rs_e_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
+                    //find max
+                    double u_acc_max_value = 0;
+                    double n_acc_max_value = 0;
+                    double e_acc_max_value = 0;
+                    int U_max_pos = 0;
+                    int N_max_pos = 0;
+                    int E_max_pos = 0;
+                    for (int i = 0 ; i < result_u.length ; i++) {
+                        if (result_u[i] > u_acc_max_value) {
+                            u_acc_max_value = result_u[i];
+                            U_max_pos = i;
+                        }
+                        if (result_n[i] > n_acc_max_value) {
+                            n_acc_max_value = result_n[i];
+                            N_max_pos = i;
+                        }
+                        if (result_e[i] > e_acc_max_value) {
+                            e_acc_max_value = result_e[i];
+                            E_max_pos = i;
                         }
                     }
-                    f_br.close();
-                    //raf.close();
-                    //if (basin_set.contains(fft.getStationCode())) {//filter basin data
-                        if (eff_count >= 5) {
-                            try {
-                                fft.transpose();
-                                fft.calc_SSID();
-                                fft.transferDataToFFT();
-                            } catch (NoSuchAlgorithmException ex) {
-                                Utils.logger.fatal(ex);
-                            }
-                        }
-                        double[] rs_u_in = fft.getOriginData_U();
-                        double[] rs_n_in = fft.getOriginData_N();
-                        double[] rs_e_in = fft.getOriginData_E();
+                    double RS_u = U_max_pos*sample_rate;
+                    double RS_n = N_max_pos*sample_rate;
+                    double RS_e = E_max_pos*sample_rate;
+                    //draw acc and spectrum chart
+                    stt_count++;
+                    /*
+                    XYChart acc_chart_u = QuickChart.getChart(fft.getStationCode()+"_"+fft.getSeismic_StartTime()+" U Max: "+RS_u+" sec", "Period(sec)", "ACC(gal)", "U Axis", rsc.getT(), result_u);
+                    XYChart acc_chart_n = QuickChart.getChart(fft.getStationCode()+"_"+fft.getSeismic_StartTime()+" N Max: "+RS_n+" sec", "Period(sec)", "ACC(gal)", "N Axis", rsc.getT(), result_n);
+                    XYChart acc_chart_e = QuickChart.getChart(fft.getStationCode()+"_"+fft.getSeismic_StartTime()+" E Max: "+RS_e+" sec", "Period(sec)", "ACC(gal)", "E Axis", rsc.getT(), result_e);
+                    // Show it
+                    acc_chart_u.getStyler().setXAxisMax(10D);
+                    acc_chart_n.getStyler().setXAxisMax(10D);
+                    acc_chart_e.getStyler().setXAxisMax(10D);
+
+                    BitmapEncoder.saveBitmap(acc_chart_u, Utils.get_MainPath()+"/"+fft.getFileName()+"_U.png", BitmapEncoder.BitmapFormat.PNG);
+                    BitmapEncoder.saveBitmap(acc_chart_n, Utils.get_MainPath()+"/"+fft.getFileName()+"_N.png", BitmapEncoder.BitmapFormat.PNG);
+                    BitmapEncoder.saveBitmap(acc_chart_e, Utils.get_MainPath()+"/"+fft.getFileName()+"_E.png", BitmapEncoder.BitmapFormat.PNG);
+                    */
+                    /*
+                    new SwingWrapper(acc_chart_u).displayChart();
+                    new SwingWrapper(acc_chart_n).displayChart();
+                    new SwingWrapper(acc_chart_e).displayChart();
+                    */
 
 
-                        for (int i = 0; i < rs_u_in.length;i++) {
-                            rs_u_in[i] = rs_u_in[i]*g;
-                            rs_n_in[i] = rs_n_in[i]*g;
-                            rs_e_in[i] = rs_e_in[i]*g;
-                        }
-                        double damping_ratio = 5D;//5%
-                        double sample_rate = 1D/fft.getSampleRate().doubleValue();// in secs
-                        double period = Math.min(fft.getRecordLength().doubleValue()/2D, 20);//20
-                        Response_Spectrum_Calculator rsc = new Response_Spectrum_Calculator();
-                        double[] result_u = rsc.get_Acc_Response_Spectrum(rs_u_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
-                        double[] result_n = rsc.get_Acc_Response_Spectrum(rs_n_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
-                        double[] result_e = rsc.get_Acc_Response_Spectrum(rs_e_in, sample_rate, damping_ratio, g, period, fft.getRecordLength().doubleValue());
-                        //find max
-                        double u_acc_max_value = 0;
-                        double n_acc_max_value = 0;
-                        double e_acc_max_value = 0;
-                        int U_max_pos = 0;
-                        int N_max_pos = 0;
-                        int E_max_pos = 0;
-                        for (int i = 0 ; i < result_u.length ; i++) {
-                            if (result_u[i] > u_acc_max_value) {
-                                u_acc_max_value = result_u[i];
-                                U_max_pos = i;
-                            }
-                            if (result_n[i] > n_acc_max_value) {
-                                n_acc_max_value = result_n[i];
-                                N_max_pos = i;
-                            }
-                            if (result_e[i] > e_acc_max_value) {
-                                e_acc_max_value = result_e[i];
-                                E_max_pos = i;
-                            }
-                        }
-                        double RS_u = U_max_pos*sample_rate;
-                        double RS_n = N_max_pos*sample_rate;
-                        double RS_e = E_max_pos*sample_rate;
-                        //draw acc and spectrum chart
-                        stt_count++;
-                        /*
-                        XYChart acc_chart_u = QuickChart.getChart(fft.getStationCode()+"_"+fft.getSeismic_StartTime()+" U Max: "+RS_u+" sec", "Period(sec)", "ACC(gal)", "U Axis", rsc.getT(), result_u);
-                        XYChart acc_chart_n = QuickChart.getChart(fft.getStationCode()+"_"+fft.getSeismic_StartTime()+" N Max: "+RS_n+" sec", "Period(sec)", "ACC(gal)", "N Axis", rsc.getT(), result_n);
-                        XYChart acc_chart_e = QuickChart.getChart(fft.getStationCode()+"_"+fft.getSeismic_StartTime()+" E Max: "+RS_e+" sec", "Period(sec)", "ACC(gal)", "E Axis", rsc.getT(), result_e);
-                        // Show it
-                        acc_chart_u.getStyler().setXAxisMax(10D);
-                        acc_chart_n.getStyler().setXAxisMax(10D);
-                        acc_chart_e.getStyler().setXAxisMax(10D);
-
-                        BitmapEncoder.saveBitmap(acc_chart_u, Utils.get_MainPath()+"/"+fft.getFileName()+"_U.png", BitmapEncoder.BitmapFormat.PNG);
-                        BitmapEncoder.saveBitmap(acc_chart_n, Utils.get_MainPath()+"/"+fft.getFileName()+"_N.png", BitmapEncoder.BitmapFormat.PNG);
-                        BitmapEncoder.saveBitmap(acc_chart_e, Utils.get_MainPath()+"/"+fft.getFileName()+"_E.png", BitmapEncoder.BitmapFormat.PNG);
-                        */
-                        /*
-                        new SwingWrapper(acc_chart_u).displayChart();
-                        new SwingWrapper(acc_chart_n).displayChart();
-                        new SwingWrapper(acc_chart_e).displayChart();
-                        */
+                    if (RS_u >= 1D || RS_n >= 1D || RS_e >= 1D) {
+                        path_long_period.add(f_path);
+                    }
 
 
-                        if (RS_u >= 1D || RS_n >= 1D || RS_e >= 1D) {
-                            path_long_period.add(f_path);
-                        }
-
-
-                        //calc distance
-                        Date fft_date = format.parse(fft.getSeismic_StartTime());
-                        Station stt_temp = Utils.get_StationList().stream().filter(stt -> stt.getStationName().equals(fft.getStationCode())).findAny().orElse(null);
-                        //check sub st name
-                        String st_vs30 = "0";
-                        double st_faultdist = 0;
-                        if (stt_temp == null) {
-                            stt_temp = Utils.get_StationList().stream().filter(stt -> stt.getSubStationName().equals(fft.getStationCode())).findAny().orElse(null);
-                            if (stt_temp != null) {
-                                st_vs30 = stt_temp.getVs30();
-                                st_faultdist = Double.valueOf(stt_temp.getNearestActiveFault_dist().getValue());
-                            }
-                        } else {
+                    //calc distance
+                    Date fft_date = format.parse(fft.getSeismic_StartTime());
+                    Station stt_temp = Utils.get_StationList().stream().filter(stt -> stt.getStationName().equals(fft.getStationCode())).findAny().orElse(null);
+                    //check sub st name
+                    String st_vs30 = "0";
+                    double st_faultdist = 0;
+                    if (stt_temp == null) {
+                        stt_temp = Utils.get_StationList().stream().filter(stt -> stt.getSubStationName().equals(fft.getStationCode())).findAny().orElse(null);
+                        if (stt_temp != null) {
                             st_vs30 = stt_temp.getVs30();
                             st_faultdist = Double.valueOf(stt_temp.getNearestActiveFault_dist().getValue());
                         }
+                    } else {
+                        st_vs30 = stt_temp.getVs30();
+                        st_faultdist = Double.valueOf(stt_temp.getNearestActiveFault_dist().getValue());
+                    }
 
-                        double sc_fault_dist  = 0;
-                        String sc_fault_name  = "";
-                        String sc_magnitude  = "";
-                        if (Utils.get_seismic_map().containsKey(fft_date)) {
-                            Seismic sc_temp = Utils.get_seismic_map().get(fft_date);
+                    double sc_fault_dist  = 0;
+                    String sc_fault_name  = "";
+                    String sc_magnitude  = "";
+                    if (Utils.get_seismic_map().containsKey(fft_date)) {
+                        Seismic sc_temp = Utils.get_seismic_map().get(fft_date);
 
-                            if (stt_temp != null) {
-                                Coordinate sc_lon_temp = Coordinate.fromDegrees(sc_temp.getLongitude().doubleValue());
-                                Coordinate sc_lat_temp = Coordinate.fromDegrees(sc_temp.getLatitude().doubleValue());
-                                com.grum.geocalc.Point sc_p = com.grum.geocalc.Point.at(sc_lat_temp, sc_lon_temp);//seismic
+                        if (stt_temp != null) {
+                            Coordinate sc_lon_temp = Coordinate.fromDegrees(sc_temp.getLongitude().doubleValue());
+                            Coordinate sc_lat_temp = Coordinate.fromDegrees(sc_temp.getLatitude().doubleValue());
+                            com.grum.geocalc.Point sc_p = com.grum.geocalc.Point.at(sc_lat_temp, sc_lon_temp);//seismic
 
-                                Coordinate st_lon_temp = Coordinate.fromDegrees(Double.valueOf(stt_temp.getLongitude()));
-                                Coordinate st_lat_temp = Coordinate.fromDegrees(Double.valueOf(stt_temp.getLatitude()));
-                                com.grum.geocalc.Point st_p = com.grum.geocalc.Point.at(st_lat_temp, st_lon_temp);//seismic
+                            Coordinate st_lon_temp = Coordinate.fromDegrees(Double.valueOf(stt_temp.getLongitude()));
+                            Coordinate st_lat_temp = Coordinate.fromDegrees(Double.valueOf(stt_temp.getLatitude()));
+                            com.grum.geocalc.Point st_p = com.grum.geocalc.Point.at(st_lat_temp, st_lon_temp);//seismic
 
-                                //Number ed_temp = fft_temp.vincentyDistance(sc_p, st_p);
-                                Number ed_temp = EarthCalc.vincentyDistance(sc_p, st_p)/1000D;//km
-                                fft.setEpicenterDistance(ed_temp.doubleValue());
-                            }
-                            fft.setMagnitude(sc_temp.getMagnitude().doubleValue());
-
-                            //predict Vs30
-                            Kriging kr = new Kriging();
-                            //variogram model
-                            String model = "spherical";//spherical,exponential,gaussian
-                            Map<String, Double> dist_map = Maps.newLinkedHashMap();
-                            Utils.get_StationMap().entrySet().stream().forEach(st_sample -> {
-                                GeodeticCalculator geoCalc = new GeodeticCalculator();
-                                GlobalCoordinates st_p = new GlobalCoordinates(sc_temp.getLatitude().doubleValue(), sc_temp.getLongitude().doubleValue());
-                                GlobalCoordinates st_s = new GlobalCoordinates(Double.valueOf(st_sample.getValue().getLatitude()), Double.valueOf(st_sample.getValue().getLongitude()));
-
-                                GeodeticCurve geoCurve = geoCalc.calculateGeodeticCurve(Configs.reference, st_p, st_s);
-                                double temp_distance = geoCurve.getEllipsoidalDistance();
-                                dist_map.put(st_sample.getValue().getStationName(), temp_distance);
-                            });
-                            Map<String, Double> sorted_dist_map = dist_map.entrySet().stream().sorted(comparingByValue()).collect(toMap(e -> e.getKey(), e -> e.getValue(), (e1, e2) -> e2, LinkedHashMap::new));
-
-                            //System.out.println(sorted_dist_map.size()+" sort by dist: " + sorted_dist_map);
-                            //2. get nearest 30 points or all in 10km range
-                            int sample_count = 1;//at least 30
-
-                            List<Station> train_list = Lists.newLinkedList();
-
-                            for (Map.Entry<String, Double> sp_temp : sorted_dist_map.entrySet()) {
-                                if (sample_count < 31) {//30 samples basic but in 50 km
-                                    if (sp_temp.getValue() <= max_distance || train_list.size() < 10) {
-                                        Station st_temp = Utils.get_StationMap().get(sp_temp.getKey());
-                                        train_list.add(st_temp);
-                                    }
-                                } else {//distance in 10km
-                                    if (sp_temp.getValue() <= distance) {
-                                        Station st_temp = Utils.get_StationMap().get(sp_temp.getKey());
-                                        train_list.add(st_temp);
-                                    } else {
-                                        break;
-                                    }
-                                }
-                                sample_count++;
-                            }
-
-                            //System.out.println(train_list.size()+" stations in train list");
-                            int real_st_num = train_list.size();
-                            //int real_st_num = Utils.get_StationList().size();//348 ok, 347 the problem //TAP003, TAP004
-                            kr.set_station_num(real_st_num);
-                            double[] value = new double[real_st_num];
-                            double[] x_lon = new double[real_st_num];
-                            double[] y_lat = new double[real_st_num];
-
-                            for (int c = 0 ; c < real_st_num ; c++) {
-                                value[c] = Double.valueOf(train_list.get(c).getVs30());
-                                x_lon[c] = Double.valueOf(train_list.get(c).getLongitude());
-                                y_lat[c] = Double.valueOf(train_list.get(c).getLatitude());
-                            }
-                            kr.set_data(value, x_lon, y_lat, model);
-                            kr.do_train();
-                            vs30_predict = kr.predict(sc_temp.getLongitude().doubleValue(), sc_temp.getLatitude().doubleValue());
-                            sc_fault_dist = sc_temp.getNearestActiveFault_dist().doubleValue();
-                            sc_fault_name = sc_temp.getNearestActiveFault();
-                            sc_magnitude = sc_temp.getMagnitude().toString();
+                            //Number ed_temp = fft_temp.vincentyDistance(sc_p, st_p);
+                            Number ed_temp = EarthCalc.vincentyDistance(sc_p, st_p)/1000D;//km
+                            fft.setEpicenterDistance(ed_temp.doubleValue());
                         }
-                        String[] result = {f_path , sc_magnitude, fft.getSeismic_StartTime(), fft.getStationCode(), Configs.data_df.format(RS_u), Configs.data_df.format(RS_n), Configs.data_df.format(RS_e)
-                                , Configs.df.format(fft.getEpicenterDistance()), Configs.df.format(st_faultdist), Configs.df.format(sc_fault_dist), sc_fault_name, Configs.df.format(vs30_predict), st_vs30};
-                        result_list.add(result);
-                        /*
-                        System.out.println(f_path+": " + sc_magnitude+"  "+fft.getSeismic_StartTime()+"  "+ fft.getStationCode()+" U: "+Configs.data_df.format(RS_u)+ "  N: "+Configs.data_df.format(RS_n)+ "  E: "+Configs.data_df.format(RS_e)+"  Period "
-                                        + Configs.df.format(fft.getEpicenterDistance()) + " km(epc to station) "+ Configs.df.format(st_faultdist) + " km(fault to station) "+Configs.df.format(sc_fault_dist) + " km(fault to seismic) fault: "+sc_fault_name +"  "
-                                        + Configs.df.format(vs30_predict) +" m/s(seicmic) "+ st_vs30 +" m/s(station)");*/
+                        fft.setMagnitude(sc_temp.getMagnitude().doubleValue());
+
+                        //predict Vs30
+                        Kriging kr = new Kriging();
+                        //variogram model
+                        String model = "spherical";//spherical,exponential,gaussian
+                        Map<String, Double> dist_map = Maps.newLinkedHashMap();
+                        Utils.get_StationMap().entrySet().stream().forEach(st_sample -> {
+                            GeodeticCalculator geoCalc = new GeodeticCalculator();
+                            GlobalCoordinates st_p = new GlobalCoordinates(sc_temp.getLatitude().doubleValue(), sc_temp.getLongitude().doubleValue());
+                            GlobalCoordinates st_s = new GlobalCoordinates(Double.valueOf(st_sample.getValue().getLatitude()), Double.valueOf(st_sample.getValue().getLongitude()));
+
+                            GeodeticCurve geoCurve = geoCalc.calculateGeodeticCurve(Configs.reference, st_p, st_s);
+                            double temp_distance = geoCurve.getEllipsoidalDistance();
+                            dist_map.put(st_sample.getValue().getStationName(), temp_distance);
+                        });
+                        Map<String, Double> sorted_dist_map = dist_map.entrySet().stream().sorted(comparingByValue()).collect(toMap(e -> e.getKey(), e -> e.getValue(), (e1, e2) -> e2, LinkedHashMap::new));
+
+                        //System.out.println(sorted_dist_map.size()+" sort by dist: " + sorted_dist_map);
+                        //2. get nearest 30 points or all in 10km range
+                        int sample_count = 1;//at least 30
+
+                        List<Station> train_list = Lists.newLinkedList();
+
+                        for (Map.Entry<String, Double> sp_temp : sorted_dist_map.entrySet()) {
+                            if (sample_count < 31) {//30 samples basic but in 50 km
+                                if (sp_temp.getValue() <= max_distance || train_list.size() < 10) {
+                                    Station st_temp = Utils.get_StationMap().get(sp_temp.getKey());
+                                    train_list.add(st_temp);
+                                }
+                            } else {//distance in 10km
+                                if (sp_temp.getValue() <= distance) {
+                                    Station st_temp = Utils.get_StationMap().get(sp_temp.getKey());
+                                    train_list.add(st_temp);
+                                } else {
+                                    break;
+                                }
+                            }
+                            sample_count++;
+                        }
+
+                        //System.out.println(train_list.size()+" stations in train list");
+                        int real_st_num = train_list.size();
+                        //int real_st_num = Utils.get_StationList().size();//348 ok, 347 the problem //TAP003, TAP004
+                        kr.set_station_num(real_st_num);
+                        double[] value = new double[real_st_num];
+                        double[] x_lon = new double[real_st_num];
+                        double[] y_lat = new double[real_st_num];
+
+                        for (int c = 0 ; c < real_st_num ; c++) {
+                            value[c] = Double.valueOf(train_list.get(c).getVs30());
+                            x_lon[c] = Double.valueOf(train_list.get(c).getLongitude());
+                            y_lat[c] = Double.valueOf(train_list.get(c).getLatitude());
+                        }
+                        kr.set_data(value, x_lon, y_lat, model);
+                        kr.do_train();
+                        vs30_predict = kr.predict(sc_temp.getLongitude().doubleValue(), sc_temp.getLatitude().doubleValue());
+                        sc_fault_dist = sc_temp.getNearestActiveFault_dist().doubleValue();
+                        sc_fault_name = sc_temp.getNearestActiveFault();
+                        sc_magnitude = sc_temp.getMagnitude().toString();
+                    }
+                    String[] result = {f_path , sc_magnitude, fft.getSeismic_StartTime(), fft.getStationCode(), Configs.data_df.format(RS_u), Configs.data_df.format(RS_n), Configs.data_df.format(RS_e)
+                            , Configs.df_2deci.format(fft.getEpicenterDistance()), Configs.df_2deci.format(st_faultdist), Configs.df_2deci.format(sc_fault_dist), sc_fault_name, Configs.df_2deci.format(vs30_predict), st_vs30};
+                    result_list.add(result);
+                    /*
+                    System.out.println(f_path+": " + sc_magnitude+"  "+fft.getSeismic_StartTime()+"  "+ fft.getStationCode()+" U: "+Configs.data_df.format(RS_u)+ "  N: "+Configs.data_df.format(RS_n)+ "  E: "+Configs.data_df.format(RS_e)+"  Period "
+                                    + Configs.df_2deci.format(fft.getEpicenterDistance()) + " km(epc to station) "+ Configs.df_2deci.format(st_faultdist) + " km(fault to station) "+Configs.df_2deci.format(sc_fault_dist) + " km(fault to seismic) fault: "+sc_fault_name +"  "
+                                    + Configs.df_2deci.format(vs30_predict) +" m/s(seicmic) "+ st_vs30 +" m/s(station)");*/
                     //}
-                } catch (FileNotFoundException ex) {
-                    Logger.getLogger(FX_Main_Controller.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (IOException | ParseException ex) {
+                } catch (ParseException ex) {
                     Logger.getLogger(FX_Main_Controller.class.getName()).log(Level.SEVERE, null, ex);
                 }
             });
@@ -3446,7 +2921,6 @@ public class FX_Main_Controller implements Initializable {
 
         String fn;
         String file_path;//no file name
-        int eff_count = 0;
         
         public Read_file_task(String fn) {
             this.fn = fn;
@@ -3459,138 +2933,93 @@ public class FX_Main_Controller implements Initializable {
             tm.begin_unit_measure();
             try {
                 //RandomAccessFile raf = new RandomAccessFile(fn, "r");
-                BufferedReader br = null;
-                String sCurrentLine = null;
-                br = new BufferedReader(new FileReader(fn));
                 FFT fft = new FFT();
-                fft.setSeismic_StartTime_from_path(fn);
-                fft.setFilePath(Paths.get(fn).getParent().toString());
-                fft.setFileName(Paths.get(fn).getFileName().toString());
-                while((sCurrentLine = br.readLine()) != null) {
-                    String temp_str = sCurrentLine;
-                    if (temp_str.startsWith("#")) {
-                        if (temp_str.contains("Code")) {
-                            eff_count++;
-                            fft.setStationCode(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                        }
-                        if (temp_str.contains("Kind")) {
-                            eff_count++;
-                            fft.setInstrumentKind(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                        }
-                        if (temp_str.contains("StartTime")) {
-                            eff_count++;
-                            String mod = temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim();
-                            mod = mod.replace("-", " ");
-                            fft.setAccelerometer_StartTime(mod);
-                        }
-                        if (temp_str.contains("sec")) {
-                            eff_count++;
-                            fft.setRecordLength(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                        }
-                        if (temp_str.contains("Hz")) {
-                            eff_count++;
-                            fft.setSampleRate(temp_str.substring(temp_str.indexOf(":") + 1, temp_str.length()).trim());
-                            fft.initDataArray(fft.getRecordLength().multiply(fft.getSampleRate()).intValue(), 4);
-                        }
-                    } else {//stage 2
-                        fft.setArrayO(temp_str);
-                    }
-                }
-                br.close();
-                //raf.close();
-                
-                if (eff_count >= 5) {
-                    try {
-                        fft.transpose();
-                        fft.calc_SSID();
-                        fft.transferDataToFFT();
-                    } catch (NoSuchAlgorithmException ex) {
-                        Utils.logger.fatal(ex);
-                    }
+                fft.load_data_from_source(fn);
+                fft.transferDataToFFT();
                     
-                    Utils.add_to_fft_station_name_set(fft.getStationCode());
-                    //if (!Utils.get_ssidqueue().contains(fft.getSSID())) {
-                    //no data in map
-                    Map<String, FFT_SnapShot> temp_fft_snp_datamap = Utils.get_fft_snp_map().get(fft.getStationCode());
-                    
-                    //SimpleDateFormat format = new SimpleDateFormat(Utils.ISO8601_date_format);
-                    //System.out.println(fft.getStationCode());
+                Utils.add_to_fft_station_name_set(fft.getStationCode());
+                //if (!Utils.get_ssidqueue().contains(fft.getSSID())) {
+                //no data in map
+                Map<String, FFT_SnapShot> temp_fft_snp_datamap = Utils.get_fft_snp_map().get(fft.getStationCode());
 
-                    FFT_SnapShot fft_ss = new FFT_SnapShot(fft.getSSID(), fft.getStationCode(), fft.getInstrumentKind(), format.parse(fft.getSeismic_StartTime()),
-                                                            fft.getMax_U_Hz(), fft.getMax_N_Hz(), fft.getMax_E_Hz(),
-                                                            fft.getMax_U_Hz_20(), fft.getMax_N_Hz_20(), fft.getMax_E_Hz_20(),
-                                                            fft.getPGA_U(), fft.getPGA_N(), fft.getPGA_E());
-                    fft_ss.setFileName(fft.getFileName());
-                    fft_ss.setFilePath(fft.getFilePath());
-                    //get station
-                    Station stt_temp = Utils.get_StationList().stream().filter(st -> st.getStationName().equals(fft_ss.getStationCode())).findAny().orElse(null);
-                    //check sub st name
-                    if (stt_temp == null) {
-                        stt_temp = Utils.get_StationList().stream().filter(st -> st.getSubStationName().equals(fft_ss.getStationCode())).findAny().orElse(null);
-                    }
-                    if (Utils.get_seismic_map().containsKey(fft_ss.getStartTime())) {
-                        //System.out.println(fft_temp.getSeismic_StartTime());
-                        Seismic sc_temp = Utils.get_seismic_map().get(fft_ss.getStartTime());
-                        fft_ss.setDepthOfFocus(sc_temp.getDepth_Of_Focus().doubleValue());
-                        //System.out.println(sc_temp.getDepth_Of_Focus().doubleValue());
-                        //fft_temp.setEpicenterDistance(fft_temp.calc_distance(sc_temp.getLongitude().doubleValue(), sc_temp.getLatitude().doubleValue(), Double.valueOf(stt_temp.getLongitude()), Double.valueOf(stt_temp.getLatitude()), 0D, 0D));
-                        fft_ss.setMagnitude(sc_temp.getMagnitude().doubleValue());
-                        //System.out.println("Match ML."+sc_temp.getMagnitude().doubleValue());
+                //SimpleDateFormat format = new SimpleDateFormat(Utils.ISO8601_date_format);
+                //System.out.println(fft.getStationCode());
+
+                FFT_SnapShot fft_ss = new FFT_SnapShot(fft.getSSID(), fft.getStationCode(), fft.getInstrumentKind(), format.parse(fft.getSeismic_StartTime()),
+                                                        fft.getMax_U_Hz(), fft.getMax_N_Hz(), fft.getMax_E_Hz(),
+                                                        fft.getMax_U_Hz_20(), fft.getMax_N_Hz_20(), fft.getMax_E_Hz_20(),
+                                                        fft.getPGA_U(), fft.getPGA_N(), fft.getPGA_E());
+                fft_ss.setFileName(fft.getFileName());
+                fft_ss.setFilePath(fft.getFilePath());
+                //get station
+                Station stt_temp = Utils.get_StationList().stream().filter(st -> st.getStationName().equals(fft_ss.getStationCode())).findAny().orElse(null);
+                //check sub st name
+                if (stt_temp == null) {
+                    stt_temp = Utils.get_StationList().stream().filter(st -> st.getSubStationName().equals(fft_ss.getStationCode())).findAny().orElse(null);
+                }
+                if (Utils.get_seismic_map().containsKey(fft_ss.getStartTime())) {
+                    //System.out.println(fft_temp.getSeismic_StartTime());
+                    Seismic sc_temp = Utils.get_seismic_map().get(fft_ss.getStartTime());
+                    fft_ss.setDepthOfFocus(sc_temp.getDepth_Of_Focus().doubleValue());
+                    //System.out.println(sc_temp.getDepth_Of_Focus().doubleValue());
+                    //fft_temp.setEpicenterDistance(fft_temp.calc_distance(sc_temp.getLongitude().doubleValue(), sc_temp.getLatitude().doubleValue(), Double.valueOf(stt_temp.getLongitude()), Double.valueOf(stt_temp.getLatitude()), 0D, 0D));
+                    fft_ss.setMagnitude(sc_temp.getMagnitude().doubleValue());
+                    //System.out.println("Match ML."+sc_temp.getMagnitude().doubleValue());
+                } else {
+                    //System.out.println("No Match...("+format.format(fft_ss.getStartTime())+")");
+                    logger.fatal("No Match...("+format.format(fft_ss.getStartTime())+")");
+
+                }
+                if (stt_temp != null) {
+                    fft_ss.setVs30(Double.valueOf(stt_temp.getVs30()));
+                    fft_ss.setGL(Double.valueOf(stt_temp.getGround_Level()));
+                    fft_ss.setZ10(Double.valueOf(stt_temp.getZ10()));
+                    fft_ss.setK(Double.valueOf(stt_temp.getKappa()));
+                    fft_ss.setStationLongitude(Double.valueOf(stt_temp.getLongitude()));
+                    fft_ss.setStationLatitude(Double.valueOf(stt_temp.getLatitude()));
+                }
+
+                if (temp_fft_snp_datamap != null) {
+                    temp_fft_snp_datamap.put(fft.getSSID(), fft_ss);
+                } else {//null
+                    Map<String, FFT_SnapShot> temp_emptyff_snp_tmap = Maps.newConcurrentMap();
+                    temp_emptyff_snp_tmap.put(fft.getSSID(), fft_ss);
+                    Utils.get_fft_snp_map().put(fft.getStationCode(), temp_emptyff_snp_tmap);
+                }
+                //fft.draw_fft_chart_onebyone_20();
+                //}
+                try {
+                    Utils.DB_create_fft_by_station_table(fft.getStationCode());
+                    String sql_s = "SELECT SSID FROM "+ fft.getStationCode() +" WHERE SSID = '" + fft.getSSID() + "'";
+                    PreparedStatement pst_s = Utils.getConnection().prepareStatement(sql_s);
+                    ResultSet rs_s = pst_s.executeQuery();
+                    if (!rs_s.next()) {
+                        //byte[] data = SerializationUtils.serialize(fft);//original
+                        //byte[] data = SerializationUtils.serialize(Utils.get_fft_snp_map().get(fft.getStationCode()).get(fft.getSSID()));//snapshot
+                        byte[] data = SerializationUtils.serialize(fft_ss);
+                        if (data.length < 10) {
+                            System.out.println(fft.getStationCode()+":"+fft.getInstrumentKind()+":"+fft.getSeismic_StartTime()+":"+fft.getSSID());
+                        }
+
+                        String sql = "insert into "+ fft.getStationCode() + " (SSID, Data) values (?, ?)";
+                        PreparedStatement pst = Utils.getConnection().prepareStatement(sql);
+                        pst.setString(1, fft.getSSID()); 
+                        pst.setBytes(2, data);
+                        Utils.add_to_op_task_queue(new OP_Task(OP_Engine.insert_or_update_into_db, pst, "Insert Into "+ fft.getStationCode() + ", SSID: "+fft.getSSID()+"."+System.getProperty("line.separator")));
                     } else {
-                        //System.out.println("No Match...("+format.format(fft_ss.getStartTime())+")");
-                        logger.fatal("No Match...("+format.format(fft_ss.getStartTime())+")");
-
+                        Platform.runLater(() -> {
+                            Utils.check_logs_textarea();
+                            logs_textarea.appendText("SSID("+Utils.get_filequeue().size()+"): "+fft.getSSID()+" already exist."+System.getProperty("line.separator"));
+                            logs_textarea.selectPositionCaret(logs_textarea.getLength());
+                        });
                     }
-                    if (stt_temp != null) {
-                        fft_ss.setVs30(Double.valueOf(stt_temp.getVs30()));
-                        fft_ss.setGL(Double.valueOf(stt_temp.getGround_Level()));
-                        fft_ss.setZ10(Double.valueOf(stt_temp.getZ10()));
-                        fft_ss.setK(Double.valueOf(stt_temp.getKappa()));
-                        fft_ss.setStationLongitude(Double.valueOf(stt_temp.getLongitude()));
-                        fft_ss.setStationLatitude(Double.valueOf(stt_temp.getLatitude()));
-                    }
-
-                    if (temp_fft_snp_datamap != null) {
-                        temp_fft_snp_datamap.put(fft.getSSID(), fft_ss);
-                    } else {//null
-                        Map<String, FFT_SnapShot> temp_emptyff_snp_tmap = Maps.newConcurrentMap();
-                        temp_emptyff_snp_tmap.put(fft.getSSID(), fft_ss);
-                        Utils.get_fft_snp_map().put(fft.getStationCode(), temp_emptyff_snp_tmap);
-                    }
-                    //fft.draw_fft_chart_onebyone_20();
-                    //}
-                    try {
-                        Utils.DB_create_fft_by_station_table(fft.getStationCode());
-                        String sql_s = "SELECT SSID FROM "+ fft.getStationCode() +" WHERE SSID = '" + fft.getSSID() + "'";
-                        PreparedStatement pst_s = Utils.getConnection().prepareStatement(sql_s);
-                        ResultSet rs_s = pst_s.executeQuery();
-                        if (!rs_s.next()) {
-                            //byte[] data = SerializationUtils.serialize(fft);//original
-                            //byte[] data = SerializationUtils.serialize(Utils.get_fft_snp_map().get(fft.getStationCode()).get(fft.getSSID()));//snapshot
-                            byte[] data = SerializationUtils.serialize(fft_ss);
-                            if (data.length < 10) {
-                                System.out.println(fft.getStationCode()+":"+fft.getInstrumentKind()+":"+fft.getSeismic_StartTime()+":"+fft.getSSID());
-                            }
-                            
-                            String sql = "insert into "+ fft.getStationCode() + " (SSID, Data) values (?, ?)";
-                            PreparedStatement pst = Utils.getConnection().prepareStatement(sql);
-                            pst.setString(1, fft.getSSID()); 
-                            pst.setBytes(2, data);
-                            Utils.add_to_op_task_queue(new OP_Task(OP_Engine.insert_or_update_into_db, pst, "Insert Into "+ fft.getStationCode() + ", SSID: "+fft.getSSID()+"."+System.getProperty("line.separator")));
-                        } else {
-                            Platform.runLater(() -> {
-                                Utils.check_logs_textarea();
-                                logs_textarea.appendText("SSID("+Utils.get_filequeue().size()+"): "+fft.getSSID()+" already exist."+System.getProperty("line.separator"));
-                                logs_textarea.selectPositionCaret(logs_textarea.getLength());
-                            });
-                        }
-                        pst_s.close();
-                        rs_s.close();
-                    } catch (SQLException ex) {
-                        Utils.logger.fatal(ex);
-                    }
-                    
+                    pst_s.close();
+                    rs_s.close();
+                } catch (SQLException ex) {
+                    Utils.logger.fatal(ex);
                 }
+                    
+                
                 //copy file to Done folder and del the original one
                 
                 //1.create done folder
@@ -3611,9 +3040,7 @@ public class FX_Main_Controller implements Initializable {
                 }
                 Files.copy(new File(fn).toPath(), new_path.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 */
-            } catch (FileNotFoundException ex) {
-                Utils.logger.fatal(ex);
-            } catch (IOException | ParseException ex) {
+            } catch (ParseException ex) {
                 Utils.logger.fatal(ex);
             }
             
@@ -4144,49 +3571,49 @@ public class FX_Main_Controller implements Initializable {
         });
         ttc_magnitude.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getMagnitude()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getMagnitude()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
         });
         ttc_U20.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getMax_U_Hz_20()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getMax_U_Hz_20()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
         });
         ttc_N20.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getMax_N_Hz_20()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getMax_N_Hz_20()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
         });
         ttc_E20.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getMax_E_Hz_20()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getMax_E_Hz_20()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
         });
         ttc_U.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getMax_U_Hz()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getMax_U_Hz()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
         });
         ttc_N.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getMax_N_Hz()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getMax_N_Hz()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
         });
         ttc_E.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getMax_E_Hz()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getMax_E_Hz()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
@@ -4194,7 +3621,7 @@ public class FX_Main_Controller implements Initializable {
 
         ttc_dof.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getDepthOfFocus()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getDepthOfFocus()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
@@ -4202,7 +3629,7 @@ public class FX_Main_Controller implements Initializable {
 
         ttc_vs30.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getVs30()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getVs30()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
@@ -4210,7 +3637,7 @@ public class FX_Main_Controller implements Initializable {
 
         ttc_gl.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getGL()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getGL()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
@@ -4218,7 +3645,7 @@ public class FX_Main_Controller implements Initializable {
 
         ttc_z10.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getZ10()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getZ10()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
@@ -4226,7 +3653,7 @@ public class FX_Main_Controller implements Initializable {
 
         ttc_k.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getK()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getK()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }
@@ -4234,7 +3661,7 @@ public class FX_Main_Controller implements Initializable {
 
         ttc_ed.setCellValueFactory(ma -> {
             try {
-                return new ReadOnlyStringWrapper(Configs.df.format(ma.getValue().getValue().getEpicenterDistance()));
+                return new ReadOnlyStringWrapper(Configs.df_2deci.format(ma.getValue().getValue().getEpicenterDistance()));
             } catch (Exception exp) {
                 return null;//null, do nothing.
             }

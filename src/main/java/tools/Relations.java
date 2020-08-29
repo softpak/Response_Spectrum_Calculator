@@ -274,14 +274,14 @@ public class Relations {
                         }
                     }
                     /*
-                    System.out.println(format.format(date_temp)+": Seismic Vs30: "+ Configs.df.format(sc_vs30_temp) +": Station Vs30: "+Configs.df.format(snp.getVs30().doubleValue())+ 
-                                    " Distance: "+Configs.df.format(snp.getEpicenterDistance().doubleValue())+ " Freq U N E: "+ Configs.df.format(snp.getMax_U_Hz_20())+
-                                    " "+Configs.df.format(snp.getMax_N_Hz_20())+" "+Configs.df.format(snp.getMax_E_Hz_20()));*/
+                    System.out.println(format.format(date_temp)+": Seismic Vs30: "+ Configs.df_2deci.format(sc_vs30_temp) +": Station Vs30: "+Configs.df_2deci.format(snp.getVs30().doubleValue())+ 
+                                    " Distance: "+Configs.df_2deci.format(snp.getEpicenterDistance().doubleValue())+ " Freq U N E: "+ Configs.df_2deci.format(snp.getMax_U_Hz_20())+
+                                    " "+Configs.df_2deci.format(snp.getMax_N_Hz_20())+" "+Configs.df_2deci.format(snp.getMax_E_Hz_20()));*/
 
                     Row row = sheet.createRow(++rowCount);
-                    String[] cell_string = {format.format(date_temp), Configs.df.format(sc_vs30_temp), Configs.df.format(snp.getVs30().doubleValue()),Configs.df.format(snp.getMagnitude()),
-                                            Configs.df.format(snp.getEpicenterDistance().doubleValue()), Configs.df.format(snp.getDepthOfFocus().doubleValue()), Configs.df.format(snp.getMax_U_Hz_20()),
-                                            Configs.df.format(snp.getMax_N_Hz_20()), Configs.df.format(snp.getMax_E_Hz_20()), Configs.df.format(max_vs30), Configs.df.format(min_vs30)};
+                    String[] cell_string = {format.format(date_temp), Configs.df_2deci.format(sc_vs30_temp), Configs.df_2deci.format(snp.getVs30().doubleValue()),Configs.df_2deci.format(snp.getMagnitude()),
+                                            Configs.df_2deci.format(snp.getEpicenterDistance().doubleValue()), Configs.df_2deci.format(snp.getDepthOfFocus().doubleValue()), Configs.df_2deci.format(snp.getMax_U_Hz_20()),
+                                            Configs.df_2deci.format(snp.getMax_N_Hz_20()), Configs.df_2deci.format(snp.getMax_E_Hz_20()), Configs.df_2deci.format(max_vs30), Configs.df_2deci.format(min_vs30)};
                     for (int rc = 0; rc < cell_string.length; rc++) {
                         Cell cell = row.createCell(rc);
                         if (rc > 0) {//numbers
@@ -534,10 +534,10 @@ public class Relations {
                 }
                 
                 Row row = sheet.createRow(++rowCount);
-                String[] cell_string = {format.format(date_temp), Configs.df.format(ep_center_vs30), Configs.df.format(station_vs30), Configs.df.format(snp_tt.getMagnitude()),
-                                        Configs.df.format(snp_tt.getEpicenterDistance().doubleValue()), Configs.df.format(snp_tt.getDepthOfFocus().doubleValue()), Configs.df.format(snp_tt.getMax_U_Hz_20()),
-                                        Configs.df.format(snp_tt.getMax_N_Hz_20()), Configs.df.format(snp_tt.getMax_E_Hz_20()), Configs.df.format(max_vs30), Configs.df.format(min_vs30),
-                                        Configs.df.format(vs30_higher_tenbe_avg*100D), Configs.df.format(vs30_lower_tenbe_avg*100D)};
+                String[] cell_string = {format.format(date_temp), Configs.df_2deci.format(ep_center_vs30), Configs.df_2deci.format(station_vs30), Configs.df_2deci.format(snp_tt.getMagnitude()),
+                                        Configs.df_2deci.format(snp_tt.getEpicenterDistance().doubleValue()), Configs.df_2deci.format(snp_tt.getDepthOfFocus().doubleValue()), Configs.df_2deci.format(snp_tt.getMax_U_Hz_20()),
+                                        Configs.df_2deci.format(snp_tt.getMax_N_Hz_20()), Configs.df_2deci.format(snp_tt.getMax_E_Hz_20()), Configs.df_2deci.format(max_vs30), Configs.df_2deci.format(min_vs30),
+                                        Configs.df_2deci.format(vs30_higher_tenbe_avg*100D), Configs.df_2deci.format(vs30_lower_tenbe_avg*100D)};
                 for (int rc = 0; rc < cell_string.length; rc++) {
                     Cell cell = row.createCell(rc);
                     if (rc > 0) {//numbers

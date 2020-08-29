@@ -9,13 +9,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -23,7 +18,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -56,6 +50,7 @@ import java.util.List;
 import static java.util.Map.Entry.comparingByValue;
 import java.util.logging.Level;
 import static java.util.stream.Collectors.toMap;
+import javafx.stage.FileChooser;
 import org.gavaghan.geodesy.GeodeticCalculator;
 import org.gavaghan.geodesy.GeodeticCurve;
 import org.gavaghan.geodesy.GlobalCoordinates;
@@ -900,5 +895,16 @@ public class Utils {
         System.out.println("R^2                 = " + R2);
         svar0 = svar * sumx2 / (n * xxbar);*/
         return R2;
+    }
+    
+    public static File excel_filechooser(String title) {
+        FileChooser station_fileChooser = new FileChooser();
+        station_fileChooser.setTitle(title);
+        station_fileChooser.setInitialDirectory(new File("."));                 
+        station_fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel", "*.xlsx"));
+        station_fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel 97-2003", "*.xls"));
+        File dir = station_fileChooser.showOpenDialog(MainApp.stage);
+        
+        return dir;
     }
 }
