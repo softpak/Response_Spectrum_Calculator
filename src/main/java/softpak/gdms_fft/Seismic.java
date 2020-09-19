@@ -6,7 +6,13 @@
 package softpak.gdms_fft;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import tools.Utils;
 
 /**
  *
@@ -23,6 +29,7 @@ public class Seismic implements Serializable {
     private String nearest_active_fault_name;//km
     private Number nearest_active_fault;//km
     private WGS84coord nearest_active_fault_coord;
+    private String SSID;
     
     
     //日期 震央經度 震央緯度 深度 芮氏規模 自由場資料筆數
@@ -119,5 +126,38 @@ public class Seismic implements Serializable {
     
     public Number getData_Num() {
         return this.data_num;
+    }
+    
+    public void setSSID(String str) {
+        SSID = str;
+    }
+    
+    public String getSSID() {
+        return this.SSID;
+    }
+   
+    public void calc_SSID() {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+            final byte[] hashbytes = digest.digest((StartTime.toString()+Longitude.toString()+Latitude.toString()+depth_of_focus.toString()+magnitude.toString()).getBytes(StandardCharsets.UTF_8));
+            //SSID = bytesToHex(hashbytes);
+            setSSID(bytesToHex(hashbytes));
+            Utils.add_ssid_to_ssidqueue(this.SSID);
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(Seismic.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        //System.out.println(SSID);
+    }
+    
+    private String bytesToHex(byte[] hash) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte h : hash) {
+            String hex = Integer.toHexString(0xff & h);
+            if (hex.length() == 1)
+                hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
     }
 }

@@ -61,6 +61,8 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -69,14 +71,18 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
@@ -104,22 +110,18 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Callback;
-import javax.imageio.ImageIO;
-import javax.script.Invocable;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
+import javafx.util.Pair;
 import javax.swing.JFrame;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.RichTextString;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -233,6 +235,7 @@ public class FX_Main_Controller implements Initializable {
     private boolean y_cb_ed_selected = false;
     
     SimpleDateFormat format = new SimpleDateFormat(Utils.ISO8601_date_format);
+    SimpleDateFormat format_nosec = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
     private boolean x_cb_pga_selected = false;
     private boolean x_cb_hz_selected = false;
     private boolean x_cb_ml_selected = false;
@@ -1589,6 +1592,7 @@ public class FX_Main_Controller implements Initializable {
         
     }
     
+    /*
     @FXML
     private void set_hanningsmooth_ButtonAction(ActionEvent event) throws Exception {
         ((CheckMenuItem) event.getSource()).getParentMenu().getItems().forEach(cmi -> ((CheckMenuItem)cmi).setSelected(false));
@@ -1599,7 +1603,7 @@ public class FX_Main_Controller implements Initializable {
         Utils.check_logs_textarea();
         logs_textarea.appendText("Smoothing: "+((CheckMenuItem) event.getSource()).getParentMenu().getText()+" "+smooth_times+" times."+System.getProperty("line.separator"));
         logs_textarea.selectPositionCaret(logs_textarea.getLength());
-    }
+    }*/
     
     @FXML
     private void open_2D_station_map_ButtonAction(ActionEvent event) throws Exception {
@@ -1827,7 +1831,7 @@ public class FX_Main_Controller implements Initializable {
         
         //3.update db
     }
-    
+    /*
     @FXML
     private void process_data_ls_ButtonAction(ActionEvent event) {
         Configs.detrend_least_square_selected = true;
@@ -1840,9 +1844,9 @@ public class FX_Main_Controller implements Initializable {
         Configs.detrend_least_square_selected = false;
         Configs.detrend_del_mean_selected = true;
         process_data_ButtonAction();
-    }
+    }*/
     
-    private void process_data_ButtonAction() {
+    private void process_data_ButtonAction(int type) {
         Configs.Work_Pool.execute(() -> {
             try {Files.walk(Paths.get(Utils.get_MainPath()).toRealPath())
                 //.filter(Files::isRegularFile)
@@ -1856,13 +1860,13 @@ public class FX_Main_Controller implements Initializable {
                         logs_textarea.appendText("Add " + path.toString() + ". " + n + " files in queue."+System.getProperty("line.separator"));
                         label_status.setText(Utils.get_filequeue().size()+" files in queue.");
                         logs_textarea.selectPositionCaret(logs_textarea.getLength());
-                        
                     });
+                    /*
                     try {
                         Thread.sleep(1L);
                     } catch (InterruptedException ex) {
                         Utils.logger.fatal(ex);
-                    }
+                    }*/
                     //logs.appendText("Add " + path.toString() + ". " + Utils.get_filequeue().size() + " files in queue.\n");
                     //System.out.println("Add " + path.toString() + ". " + Utils.get_filequeue().size() + " files in queue.\n");
                 });
@@ -1876,14 +1880,20 @@ public class FX_Main_Controller implements Initializable {
             }
             
             Utils.get_filequeue().stream().forEach(fn -> {
-                Read_file_task rft = new Read_file_task(fn);
-                rft.compute();
-                //rft.fork();
+                switch (type) {
+                    case 0:
+                        Read_raw_data_task rdt = new Read_raw_data_task(fn);
+                        //rdt.compute();
+                        rdt.fork();
+                        break;
+                    case 1:
+                        break;
+                    case 2:
+                        break;
+                    default:
+                        break;
+                }
             });
-            //Utils.clear_filequeue();
-
-            //et = System.currentTimeMillis();
-            //System.out.println("1.8:" + (et - st) + "ms.");
         });
     }
     
@@ -2330,18 +2340,141 @@ public class FX_Main_Controller implements Initializable {
     }
     
     @FXML
-    private void import_seismic_data_ButtonAction(ActionEvent event) throws IOException {
-        /*
-        System.out.println("You clicked me!");
-        label.setText("Hello World!");
-        
-        st = System.currentTimeMillis();*/
-
-        //if (Utils.get_MainPath() != null) {
+    private void import_seismic_data_from_folder_ButtonAction(ActionEvent event) throws IOException {
+        //choose dir
         choose_dic();
+        //select dialog
+        Label label_de = new Label("Detrend");
+        Label label_sm = new Label("Smooth");
+        Label label_dr = new Label("Result");
+                
+        ObservableList<String> detrend_type = 
+        FXCollections.observableArrayList(
+            "None",
+            "Least Square",
+            "Remove DC"
+        );
+        ObservableList<String> smooth_type = 
+        FXCollections.observableArrayList(
+            "None",
+            "Hanning",
+            "Boxcar",
+            "Gaussian"
+        );
+        ObservableList<String> smooth_level = 
+        FXCollections.observableArrayList(
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+        );
         
-        //read by lines
-        //st = System.currentTimeMillis();
+        ObservableList<String> result_type = 
+        FXCollections.observableArrayList(
+            "Raw Data",    
+            "FFT",
+            "Corner Period"
+        );
+        ComboBox detrend_comboBox = new ComboBox(detrend_type);
+        ComboBox smooth_comboBox = new ComboBox(smooth_type);
+        ComboBox smooth_level_comboBox = new ComboBox(smooth_level);
+        ComboBox result_comboBox = new ComboBox(result_type);
+        detrend_comboBox.getSelectionModel().selectFirst();
+        smooth_comboBox.getSelectionModel().selectFirst();
+        smooth_level_comboBox.getSelectionModel().selectFirst();
+        smooth_level_comboBox.setDisable(true);
+        result_comboBox.getSelectionModel().selectFirst();
+        
+        /*
+        detrend_comboBox.setOnAction(evn -> {
+            //String color = (String) comboBox.getSelectionModel().getSelectedItem();
+            System.out.println("0:"+detrend_comboBox.getSelectionModel().getSelectedItem());
+        });
+        */
+        smooth_comboBox.setOnAction(evn -> {
+            if (smooth_comboBox.getSelectionModel().getSelectedItem().toString().equals("Hanning")) {
+                smooth_level_comboBox.setDisable(false);
+            } else {
+                smooth_level_comboBox.setDisable(true);
+            }
+        });
+        
+        
+        //ChoiceDialog<String> dialog = new ChoiceDialog(choices.get(0), choices);
+        Dialog<Pair<String, String>> dialog = new Dialog<>();
+        dialog.setTitle("Import Settings");
+        
+        dialog.setHeaderText(" ");
+        ButtonType okButtonType = new ButtonType("Import", ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
+        //dialog.setContentText("Settings");
+        dialog.setGraphic(new ImageView(new Image(getClass().getResourceAsStream("/icon/search.png"))));
+        Stage stage = (Stage) dialog.getDialogPane().getScene().getWindow();
+        
+        
+        
+        // Add a custom icon.
+        stage.getIcons().add(new Image(getClass().getResourceAsStream("/icon/equalizer.png")));
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        
+        grid.add(label_de, 0, 0);
+        grid.add(label_sm, 0, 1);
+        grid.add(label_dr, 0, 2);
+        grid.add(detrend_comboBox, 1, 0);
+        grid.add(smooth_comboBox, 1, 1);
+        grid.add(smooth_level_comboBox, 2, 1);
+        grid.add(result_comboBox, 1, 2);
+                
+        dialog.getDialogPane().setContent(grid);
+        
+        
+        
+        Optional<Pair<String, String>> result = dialog.showAndWait();
+        String selected = null;
+        
+        if (result.isPresent()) {
+            
+            if (detrend_comboBox.getSelectionModel().getSelectedItem().toString().equals("Least Square")) {
+                Configs.detrend_least_square_selected = true;
+                Configs.detrend_del_mean_selected = false;
+            } else if (detrend_comboBox.getSelectionModel().getSelectedItem().toString().equals("Remove DC")) {
+                Configs.detrend_least_square_selected = false;
+                Configs.detrend_del_mean_selected = true;
+            } else {
+                Configs.detrend_least_square_selected = false;
+                Configs.detrend_del_mean_selected = false;
+            }
+            
+            //smooth
+            String smooth_select = smooth_comboBox.getSelectionModel().getSelectedItem().toString();
+            
+            if (smooth_select.equals("Boxcar")) {
+                
+            } else if (smooth_select.equals("Gaussian")) {
+                
+            } else if (smooth_select.equals("Hanning")) {
+                Utils.set_smoothing_mode(smooth_comboBox.getSelectionModel().getSelectedItem().toString() ,Integer.valueOf(smooth_level_comboBox.getSelectionModel().getSelectedItem().toString()));
+            } else {
+                
+            }
+            
+            String result_select = result_comboBox.getSelectionModel().getSelectedItem().toString();
+            
+            if (result_select.equals("Raw Data")) {
+                process_data_ButtonAction(0);
+            } else if (result_select.equals("FFT")) {
+                process_data_ButtonAction(1);
+            } else if (result_select.equals("Corner Period")) {
+                process_data_ButtonAction(2);
+            }
+            
+        } else {
+            dialog.close();
+        }
     }
     
     @FXML
@@ -2898,8 +3031,8 @@ public class FX_Main_Controller implements Initializable {
         logs.deselect();
         });*/
         menuitem_about.setOnAction((ActionEvent event) -> {
-            Alert alert = new Alert(AlertType.INFORMATION); // 實體化Alert對話框物件，並直接在建構子設定對話框的訊息類型
-            alert.setTitle("About"); //設定對話框視窗的標題列文字
+            Alert alert = new Alert(AlertType.INFORMATION);
+            alert.setTitle("About");
             alert.setHeaderText(null);
             alert.setContentText("This program is written by \nHe ZongYou.");
             alert.show();
@@ -2915,6 +3048,121 @@ public class FX_Main_Controller implements Initializable {
         }
     }
     
+    
+    public class Read_raw_data_task extends RecursiveAction {
+
+        String fn;
+        String file_path;//no file name
+        
+        public Read_raw_data_task(String fn) {
+            this.fn = fn;
+
+        }
+        
+        @Override
+        protected void compute() {
+            TimeMeasure tm = new TimeMeasure();
+            tm.begin_unit_measure();
+            try {
+                //RandomAccessFile raf = new RandomAccessFile(fn, "r");
+                Raw_Data raw_data = new Raw_Data();
+                raw_data.load_data_from_source(fn);
+                    
+                Utils.add_to_fft_station_name_set(raw_data.getStationCode());
+                
+                Map<String, Raw_Data> temp_raw_data_map = Utils.get_raw_data_map().get(raw_data.getStationCode());
+
+                //get station
+                Station stt_temp = Utils.get_StationList().stream().filter(st -> st.getStationName().equals(raw_data.getStationCode())).findAny().orElse(null);
+                //check sub st name
+                Date sc_date_temp = format.parse(raw_data.getSeismic_StartTime());
+                
+                
+                if (stt_temp == null) {
+                    stt_temp = Utils.get_StationList().stream().filter(st -> st.getSubStationName().equals(raw_data.getStationCode())).findAny().orElse(null);
+                }
+                if (Utils.get_seismic_map().containsKey(sc_date_temp)) {
+                    //System.out.println(fft_temp.getSeismic_StartTime());
+                    Seismic sc_temp = Utils.get_seismic_map().get(sc_date_temp);
+                    raw_data.setDepthOfFocus(sc_temp.getDepth_Of_Focus().doubleValue());
+                    //System.out.println(sc_temp.getDepth_Of_Focus().doubleValue());
+                    //fft_temp.setEpicenterDistance(fft_temp.calc_distance(sc_temp.getLongitude().doubleValue(), sc_temp.getLatitude().doubleValue(), Double.valueOf(stt_temp.getLongitude()), Double.valueOf(stt_temp.getLatitude()), 0D, 0D));
+                    raw_data.setMagnitude(sc_temp.getMagnitude().doubleValue());
+                    //System.out.println("Match ML."+sc_temp.getMagnitude().doubleValue());
+                } else {
+                    //System.out.println("No Match...("+format.format(fft_ss.getStartTime())+")");
+                    logger.fatal("No Match...("+raw_data.getSeismic_StartTime()+")");
+
+                }
+                if (stt_temp != null) {
+                    raw_data.setVs30(Double.valueOf(stt_temp.getVs30()));
+                    raw_data.setGL(Double.valueOf(stt_temp.getGround_Level()));
+                    raw_data.setZ10(Double.valueOf(stt_temp.getZ10()));
+                    raw_data.setK(Double.valueOf(stt_temp.getKappa()));
+                    raw_data.setStationLongitude(Double.valueOf(stt_temp.getLongitude()));
+                    raw_data.setStationLatitude(Double.valueOf(stt_temp.getLatitude()));
+                }
+
+                if (temp_raw_data_map != null) {
+                    temp_raw_data_map.put(raw_data.getSSID(), raw_data);
+                } else {//null
+                    Map<String, Raw_Data> temp_empty_raw_tmap = Maps.newConcurrentMap();
+                    temp_empty_raw_tmap.put(raw_data.getSSID(), raw_data);
+                    Utils.get_raw_data_map().put(raw_data.getStationCode(), temp_empty_raw_tmap);
+                }
+                try {
+                    Utils.DB_create_ssid_data_table_by(Configs.raw_prefix_db + raw_data.getStationCode());
+                    String sql_s = "SELECT SSID FROM "+ Configs.raw_prefix_db + raw_data.getStationCode() +" WHERE SSID = '" + raw_data.getSSID() + "'";
+                    PreparedStatement pst_s = Utils.getConnection().prepareStatement(sql_s);
+                    ResultSet rs_s = pst_s.executeQuery();
+                    if (!rs_s.next()) {
+                        byte[] data = SerializationUtils.serialize(raw_data);
+                        if (data.length < 10) {
+                            Utils.logger.fatal(raw_data.getStationCode()+":"+raw_data.getInstrumentKind()+":"+raw_data.getSeismic_StartTime()+":"+raw_data.getSSID());
+                        } else {
+                            String sql = "insert into "+ Configs.raw_prefix_db + raw_data.getStationCode() + " (SSID, Data) values (?, ?)";
+                            PreparedStatement pst = Utils.getConnection().prepareStatement(sql);
+                            pst.setString(1, raw_data.getSSID()); 
+                            pst.setBytes(2, data);
+                            Utils.add_to_op_task_queue(new OP_Task(OP_Engine.insert_or_update_into_db, pst, "Insert Into "+ Configs.raw_prefix_db + raw_data.getStationCode() + ", SSID: "+raw_data.getSSID()+"."+System.getProperty("line.separator")));
+                        }
+                    } else {
+                        Platform.runLater(() -> {
+                            Utils.check_logs_textarea();
+                            logs_textarea.appendText("SSID("+Utils.get_filequeue().size()+"): "+raw_data.getSSID()+" already exist."+System.getProperty("line.separator"));
+                            logs_textarea.selectPositionCaret(logs_textarea.getLength());
+                        });
+                    }
+                    pst_s.close();
+                    rs_s.close();
+                } catch (SQLException ex) {
+                    Utils.logger.fatal(ex);
+                }
+            } catch (ParseException ex) {
+                Utils.logger.fatal(ex);
+            }
+            tm.stop_unit_measure();
+            
+            
+            
+            Platform.runLater(() -> {
+                Utils.get_filequeue().remove(fn);
+                if (Utils.get_filequeue().size() > 0) {
+                    label_status.setText(Utils.get_filequeue().size() + " files in queue. Remaining time: "+ tm.get_escapetime(Utils.get_filequeue().size()));
+                } else {
+                    et = System.currentTimeMillis();
+                    //System.out.println("result:"+(et-st)+"ms.");
+                    label_status.setText("done(" + df.format((et - st) / 1000D) + "s)");
+                    logs_textarea.appendText("<==========================================>"+System.getProperty("line.separator"));
+                    while (Utils.file_with_wrong_queue.size() > 0) {
+                        Utils.check_logs_textarea();
+                        logs_textarea.appendText(Utils.file_with_wrong_queue.poll());
+                        logs_textarea.selectPositionCaret(logs_textarea.getLength());
+                    }
+                }
+            });
+        }
+    }
     
 
     public class Read_file_task extends RecursiveAction {
@@ -2989,7 +3237,7 @@ public class FX_Main_Controller implements Initializable {
                 //fft.draw_fft_chart_onebyone_20();
                 //}
                 try {
-                    Utils.DB_create_fft_by_station_table(fft.getStationCode());
+                    Utils.DB_create_ssid_data_table_by(fft.getStationCode());
                     String sql_s = "SELECT SSID FROM "+ fft.getStationCode() +" WHERE SSID = '" + fft.getSSID() + "'";
                     PreparedStatement pst_s = Utils.getConnection().prepareStatement(sql_s);
                     ResultSet rs_s = pst_s.executeQuery();
@@ -3074,7 +3322,7 @@ public class FX_Main_Controller implements Initializable {
 
     private void choose_dic() {
         DirectoryChooser DicChooser = new DirectoryChooser();
-        DicChooser.setTitle("Open Resource File");
+        DicChooser.setTitle("Open Source Folder");
         File dir = DicChooser.showDialog(MainApp.stage);
         if (dir != null) {
             try {
@@ -3187,42 +3435,125 @@ public class FX_Main_Controller implements Initializable {
         if (dir != null) {
             label_status.setText(dir.getCanonicalPath());
             Utils.set_ProjectPath(dir.getCanonicalPath());
-            import_seismic_data_into_db(dir.getCanonicalPath());
+            //let user choose sheets
+            //1.get sheet number from file
+            int sheet_num = 0;
+            File seismic_file = null;
+            FileInputStream fis = null;
+            String ext = null;
+            try {
+                seismic_file = new File(dir.getCanonicalPath());
+                fis = new FileInputStream(seismic_file);
+                // Finds the workbook instance for XLSX file
+                //get ext
+                ext = dir.getCanonicalPath().substring(dir.getCanonicalPath().lastIndexOf("."));
+                Workbook seismic_WorkBook;
+                XSSFWorkbook seismic_WorkBook_x;
+                Sheet sheet = null;
+                if (ext.equals(".xls")) {
+                    seismic_WorkBook = WorkbookFactory.create(fis);
+                    sheet_num = seismic_WorkBook.getNumberOfSheets();
+                } else if (ext.equals(".xlsx")) {
+                    seismic_WorkBook_x = XSSFWorkbookFactory.createWorkbook(fis);
+                    sheet_num = seismic_WorkBook_x.getNumberOfSheets();
+                    //System.out.println(sheet_num);
+                }
+            } catch (FileNotFoundException ex) {
+                Utils.logger.fatal(ex);
+            } catch (IOException | EncryptedDocumentException | InvalidFormatException ex) {
+                Utils.logger.fatal(ex);
+            }
+            
+            ObservableList<String> sheet_start = FXCollections.observableArrayList();
+            ObservableList<String> sheet_end = FXCollections.observableArrayList();
+            
+            for (int c = 0; c < sheet_num; c++) {
+                sheet_start.add(String.valueOf(c));
+                sheet_end.add(String.valueOf(c));
+            }
+            
+            Label label_sr = new Label("Sheet Range");
+        
+            ComboBox sheet_start_comboBox = new ComboBox(sheet_start);
+            ComboBox sheet_end_comboBox = new ComboBox(sheet_end);
+            sheet_start_comboBox.getSelectionModel().selectFirst();
+            sheet_end_comboBox.getSelectionModel().selectLast();
+  
+
+            //ChoiceDialog<String> dialog = new ChoiceDialog(choices.get(0), choices);
+            Dialog<Pair<String, String>> dialog = new Dialog<>();
+            dialog.setTitle("Import Seismic Events");
+
+            dialog.setHeaderText(" ");
+            ButtonType okButtonType = new ButtonType("Import", ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
+            //dialog.setContentText("Settings");
+            dialog.setGraphic(new ImageView(new Image(getClass().getResourceAsStream("/icon/search.png"))));
+            Stage stage = (Stage) dialog.getDialogPane().getScene().getWindow();
+
+
+
+            // Add a custom icon.
+            stage.getIcons().add(new Image(getClass().getResourceAsStream("/icon/equalizer.png")));
+
+            GridPane grid = new GridPane();
+            grid.setHgap(10);
+            grid.setVgap(10);
+
+            grid.add(label_sr, 0, 0);
+            grid.add(sheet_start_comboBox, 1, 0);
+            grid.add(sheet_end_comboBox, 2, 0);
+
+            dialog.getDialogPane().setContent(grid);
+
+
+
+            Optional<Pair<String, String>> result = dialog.showAndWait();
+            String selected = null;
+
+            if (result.isPresent()) {
+                int start_select = Integer.valueOf(sheet_start_comboBox.getSelectionModel().getSelectedItem().toString());
+                int end_select = Integer.valueOf(sheet_end_comboBox.getSelectionModel().getSelectedItem().toString());
+                fis = new FileInputStream(seismic_file);
+                import_seismic_data_into_db(fis, ext, start_select, end_select);
+            } else {
+                dialog.close();
+            }
         } else {
             label_status.setText("idle");
         }
     }
     
     //import from excel
-    private void import_seismic_data_into_db(String path) {
+    private void import_seismic_data_into_db(FileInputStream fis, String ext, int start, int end) {
         Configs.Work_Pool.execute(() -> {
             try {
-                File station_file = new File(path);
-                FileInputStream fis = new FileInputStream(station_file);
                 // Finds the workbook instance for XLSX file
                 //get ext
-                String ext = path.substring(path.lastIndexOf("."));
-                Workbook station_WorkBook;
-                XSSFWorkbook station_WorkBook_x;
+                Workbook seismic_WorkBook;
+                XSSFWorkbook seismic_WorkBook_x;
                 Sheet sheet = null;
-                int sheet_num = 0;
                 if (ext.equals(".xls")) {
-                    station_WorkBook = WorkbookFactory.create(fis);
-                    sheet_num = station_WorkBook.getNumberOfSheets();
-                    for (int si = 0; si < sheet_num; si++) {
-                        sheet = station_WorkBook.getSheetAt(si);
+                    seismic_WorkBook = WorkbookFactory.create(fis);
+                    for (int si = start; si <= end; si++) {
+                        sheet = seismic_WorkBook.getSheetAt(si);
                         process_seismic_event_data_from_excel(sheet);
                     }
                     Platform.runLater(() -> label_status.setText(Utils.get_seismic_map().size()+" seismic data.(done)"));
                     
                 } else if (ext.equals(".xlsx")) {
-                    station_WorkBook_x = XSSFWorkbookFactory.createWorkbook(fis);
-                    sheet_num = station_WorkBook_x.getNumberOfSheets();
-                    for (int si = 0; si < sheet_num; si++) {
-                        sheet = station_WorkBook_x.getSheetAt(si);
-                        process_seismic_event_data_from_excel(sheet);
+                    seismic_WorkBook_x = XSSFWorkbookFactory.createWorkbook(fis);
+                    //System.out.println(sheet_num);
+                    for (int si = start; si <= end; si++) {
+                        try {
+                            sheet = seismic_WorkBook_x.getSheetAt(si);
+                            process_seismic_event_data_from_excel(sheet);
+                        } catch (Exception ex) {
+                            Utils.logger.debug(ex);
+                        }
                     }
                     Platform.runLater(() -> label_status.setText(Utils.get_seismic_map().size()+" seismic data.(done)"));
+                    
                 }
                 
                 /*
@@ -3231,14 +3562,10 @@ public class FX_Main_Controller implements Initializable {
                 } catch (InterruptedException ex) {
                     Logger.getLogger(FX_Main_Controller.class.getName()).log(Level.SEVERE, null, ex);
                 }*/
-                
-                
                 fis.close();
             } catch (FileNotFoundException ex) {
                 Utils.logger.fatal(ex);
-            } catch (IOException ex) {
-                Utils.logger.fatal(ex);
-            } catch (EncryptedDocumentException | InvalidFormatException ex) {
+            } catch (IOException | EncryptedDocumentException | InvalidFormatException ex) {
                 Utils.logger.fatal(ex);
             }
         });
@@ -3246,92 +3573,108 @@ public class FX_Main_Controller implements Initializable {
     
     private void process_seismic_event_data_from_excel(Sheet sheet) {
         //SimpleDateFormat format = new SimpleDateFormat(Utils.ISO8601_date_format);
-        for (int i = 0; i <= sheet.getPhysicalNumberOfRows() ; i++) {
+        for (int i = 1; i <= sheet.getPhysicalNumberOfRows() ; i++) {
             Row row = sheet.getRow(i);
             try {
-                double data_num = row.getCell(8).getNumericCellValue();
+                double data_num = row.getCell(6).getNumericCellValue();
+                //System.out.println(data_num);
                 //ignore data number import all event
-                //if (data_num > 0D) {
-                    //日期 震央經度 震央緯度 深度 芮氏規模 自由場資料筆數
+                if (data_num > 0) {
                     Seismic sc_temp = new Seismic();
-                    for (int j = 2; j <= 7; j++) {
+                    for (int j = 2; j <= 6; j++) {
                         Cell cell = row.getCell(j);
                         switch (j) {
                             case 2://date
-                                sc_temp.setStartTime(cell.getDateCellValue());
+                                try {
+                                    sc_temp.setStartTime(cell.getDateCellValue());
+                                } catch (Exception ex) {
+                                    try {
+                                        String dt_temp = cell.getStringCellValue();
+                                        dt_temp = dt_temp.replaceAll("-", "/");
+                                        sc_temp.setStartTime(format_nosec.parse(dt_temp));
+                                    } catch (ParseException ex1) {
+                                        Logger.getLogger(FX_Main_Controller.class.getName()).log(Level.SEVERE, null, ex1);
+                                    }
+                                }
+                                //System.out.print(format.format(cell.getDateCellValue())+": ");
                                 break;
                             case 3://long
                                 sc_temp.setLongitude(cell.getNumericCellValue());
+                                //System.out.print(cell.getNumericCellValue()+" ");
                                 break;
                             case 4://lat
                                 sc_temp.setLatitude(cell.getNumericCellValue());
+                                //System.out.print(cell.getNumericCellValue()+" ");
                                 break;
                             case 5://depth
                                 sc_temp.setDepth_Of_Focus(cell.getNumericCellValue());
+                                //System.out.print(cell.getNumericCellValue()+" ");
                                 break;
                             case 6://ml
                                 sc_temp.setMagnitude(cell.getNumericCellValue());
+                                //System.out.print(cell.getNumericCellValue()+"\n");
                                 break;
+                            /*
                             case 7://numbers of data
-                                /*
-                                String num_str = cell.getStringCellValue();
-                                int post = num_str.indexOf("-");
-                                num_str = num_str.substring(0, post);
-                                sc_temp.setData_Num(Integer.valueOf(num_str.trim()));*/
                                 try {
                                     sc_temp.setData_Num((int)data_num);
                                 } catch (Exception ex) {
                                     sc_temp.setData_Num(0);
-                                }
+                                }*/
+                            default:
                                 break;
                         }
                         //logs.appendText("\n");
                     }
+                    sc_temp.calc_SSID();
                     //add nearest fault and vs30
+                    /*
                     sc_temp.setPredictVs30(get_kriging_result(sc_temp.getLongitude().doubleValue(), sc_temp.getLatitude().doubleValue()));
                     Map<String, Double> nearest_af = Maps.newConcurrentMap();
-                    
-                    Utils.af_queue.stream().forEach(af -> {
-                        List<Double> af_dist = Lists.newArrayList();
-                        af.getPointList().stream().forEach(pp -> {
-                            GeodeticCalculator geoCalc = new GeodeticCalculator();
-                            GlobalCoordinates af_p = new GlobalCoordinates(pp.lat_WGS, pp.lon_WGS);
-                            GlobalCoordinates sc_p = new GlobalCoordinates(sc_temp.getLatitude().doubleValue(), sc_temp.getLongitude().doubleValue());
-                            
-                            GeodeticCurve geoCurve = geoCalc.calculateGeodeticCurve(Configs.reference, sc_p, af_p);
-                            af_dist.add(geoCurve.getEllipsoidalDistance()/1000D);
+                    if (Utils.af_queue.size() > 0) {
+                        Utils.af_queue.stream().forEach(af -> {
+                            List<Double> af_dist = Lists.newArrayList();
+                            af.getPointList().stream().forEach(pp -> {
+                                GeodeticCalculator geoCalc = new GeodeticCalculator();
+                                GlobalCoordinates af_p = new GlobalCoordinates(pp.lat_WGS, pp.lon_WGS);
+                                GlobalCoordinates sc_p = new GlobalCoordinates(sc_temp.getLatitude().doubleValue(), sc_temp.getLongitude().doubleValue());
+
+                                GeodeticCurve geoCurve = geoCalc.calculateGeodeticCurve(Configs.reference, sc_p, af_p);
+                                af_dist.add(geoCurve.getEllipsoidalDistance()/1000D);
+                            });
+                            Collections.sort(af_dist);
+
+                            nearest_af.put(af.getFaultName(), af_dist.get(0));
                         });
-                        Collections.sort(af_dist);
-                        
-                        nearest_af.put(af.getFaultName(), af_dist.get(0));
-                    });
-                    Map<String, Double> sorted_dist_map = nearest_af.entrySet().stream().sorted(comparingByValue()).collect(toMap(e -> e.getKey(), e -> e.getValue(), (e1, e2) -> e2, LinkedHashMap::new));
-                    
-                    Map.Entry<String, Double> entry = sorted_dist_map.entrySet().iterator().next();
-                    sc_temp.setNearestActiveFault_dist(entry.getValue());
-                    sc_temp.setNearestActiveFault(entry.getKey());
+                        Map<String, Double> sorted_dist_map = nearest_af.entrySet().stream().sorted(comparingByValue()).collect(toMap(e -> e.getKey(), e -> e.getValue(), (e1, e2) -> e2, LinkedHashMap::new));
+
+                        Map.Entry<String, Double> entry = sorted_dist_map.entrySet().iterator().next();
+                        sc_temp.setNearestActiveFault_dist(entry.getValue());
+                        sc_temp.setNearestActiveFault(entry.getKey());
+                    }
+                    */
                     //System.out.println(format.format(sc_temp.getStartTime())+": "+sc_temp.getNearestActiveFault()+", "+sc_temp.getNearestActiveFault_dist()+" km");
-                    
                     
                     Platform.runLater(() -> {
                         Utils.check_logs_textarea();
-                        logs_textarea.appendText("date:"+format.format(sc_temp.getStartTime())+", long:" + sc_temp.getLongitude()+", lat:" + sc_temp.getLatitude() +
-                                        ", depth(km):" + sc_temp.getDepth_Of_Focus()+", ml:" + sc_temp.getMagnitude()+", data number:" + sc_temp.getData_Num()+"."+System.getProperty("line.separator"));
+                        logs_textarea.appendText("date:"+format.format(sc_temp.getStartTime())+", lon:" + sc_temp.getLongitude()+", lat:" + sc_temp.getLatitude() +
+                                        ", depth(km):" + sc_temp.getDepth_Of_Focus()+", ml:" + sc_temp.getMagnitude()+"."+System.getProperty("line.separator"));
                         logs_textarea.selectPositionCaret(logs_textarea.getLength());
                     });
                     //check event
-                    String sql_s = "SELECT StartTime FROM Seismic WHERE StartTime = '" + format.format(sc_temp.getStartTime()) + "'";
+                    String sql_s = "SELECT SSID FROM Seismic WHERE SSID = '" + sc_temp.getSSID() + "'";
                     PreparedStatement pst_s = Utils.getConnection().prepareStatement(sql_s);
                     ResultSet rs_s = pst_s.executeQuery();
                     if (!rs_s.next()) {
                         //insert into DB
-                        String sql = "insert into Seismic (StartTime, Data) values (?, ?)";
+                        String sql = "insert into Seismic (SSID, StartTime, Data) values (?, ?, ?)";
                         PreparedStatement pst;
                         try {
                             byte[] data = SerializationUtils.serialize(sc_temp);
                             pst = Utils.getConnection().prepareStatement(sql);
-                            pst.setString(1, format.format(sc_temp.getStartTime())); 
-                            pst.setBytes(2, data);
+                            pst.setString(1, sc_temp.getSSID()); 
+                            pst.setString(2, format.format(sc_temp.getStartTime())); 
+                            pst.setBytes(3, data);
                             Utils.add_to_op_task_queue(new OP_Task(OP_Engine.insert_or_update_into_db, pst));
                             Utils.add_to_seismic_map(sc_temp.getStartTime(), sc_temp);
                         } catch (SQLException ex) {
@@ -3345,21 +3688,12 @@ public class FX_Main_Controller implements Initializable {
                             Utils.check_logs_textarea();
                             logs_textarea.appendText("Event already exist."+System.getProperty("line.separator"));
                             logs_textarea.selectPositionCaret(logs_textarea.getLength());
+                            label_status.setText(Utils.get_seismic_map().size()+" Insert seismic data.");
                         });
                     }
-                    
-                    
-                    
-                //}
-            } catch (Exception exp) {
-                //System.out.println("no numbers");
-                Platform.runLater(() -> label_status.setText(Utils.get_seismic_map().size()+" seismic data."));
-                //do nothing
-            }
-            try {
-                Thread.sleep(1L);
-            } catch (InterruptedException ex) {
-                Utils.logger.fatal(ex);
+                }
+            } catch (SQLException exp) {
+                Utils.logger.fatal(exp);
             }
         }
     }

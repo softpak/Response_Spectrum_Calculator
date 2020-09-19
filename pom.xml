@@ -232,11 +232,6 @@
             <version>0.5.7</version>
         </dependency>
         <dependency>
-            <groupId>org.mozilla</groupId>
-            <artifactId>rhino</artifactId>
-            <version>1.7.11</version>
-        </dependency>
-        <dependency>
             <groupId>org.gavaghan</groupId>
             <artifactId>geodesy</artifactId>
             <version>1.1.3</version>
@@ -270,5 +265,6 @@
 --add-modules=javafx.fxml
 --add-modules=javafx.media
 --add-modules=javafx.web
---add-exports javafx.graphics/com.sun.javafx.application=ALL-UNNAMED</description>
+--add-exports javafx.graphics/com.sun.javafx.application=ALL-UNNAMED
+-Xmx16G</description>
 </project>

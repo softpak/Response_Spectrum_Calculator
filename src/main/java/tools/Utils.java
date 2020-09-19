@@ -55,6 +55,7 @@ import org.gavaghan.geodesy.GeodeticCalculator;
 import org.gavaghan.geodesy.GeodeticCurve;
 import org.gavaghan.geodesy.GlobalCoordinates;
 import softpak.gdms_fft.Active_Fault;
+import softpak.gdms_fft.Raw_Data;
 
 /**
  *
@@ -68,6 +69,8 @@ public class Utils {
     public static Queue<Active_Fault> af_queue = Queues.newConcurrentLinkedQueue();
     
     private static Map<String, Map<String, FFT_SnapShot>> selected_snapshot_map = Maps.newConcurrentMap();//String<Station Code>, Map<SSID, FFT_SnapShot
+    private static Map<String, Map<String, Raw_Data>> raw_data_map = Maps.newConcurrentMap();//String<Station Code>, Map<SSID, Raw Data
+    
     
     private static Map<String, Map<String, FFT_SnapShot>> fft_snapshot_map = Maps.newConcurrentMap();//String<Station Code>, Map<SSID, FFT_SnapShot>
     private static ArrayList<Map<String, FFT_SnapShot>> search_tag_list_fft_snapshot = Lists.newArrayList();
@@ -178,6 +181,7 @@ public class Utils {
                     + "FaultDist TEXT,"
                     + "FaultCoord TEXT)");
             stmt.execute("CREATE TABLE IF NOT EXISTS Seismic ("
+                    + "SSID TEXT,"
                     + "StartTime TEXT,"
                     + "Data BLOB)");
             stmt.close();
@@ -202,7 +206,7 @@ public class Utils {
         });
     }
     
-    public static void DB_create_fft_by_station_table(String table) throws SQLException {
+    public static void DB_create_ssid_data_table_by(String table) throws SQLException {
         Statement stmt = conn.createStatement();
         stmt.execute("CREATE TABLE IF NOT EXISTS "+table+ " ("
                 + "SSID TEXT,"
@@ -240,7 +244,7 @@ public class Utils {
     }
     
     public static void insert_FFTData(String staion, FFT fft)throws SQLException, IOException{
-        DB_create_fft_by_station_table(staion);
+        DB_create_ssid_data_table_by(staion);
         byte[] data = SerializationUtils.serialize(fft);
         String sql = "insert into "+ staion + " (SSID, Data values(?, ?)";
         PreparedStatement pst = conn.prepareStatement(sql);
@@ -495,6 +499,11 @@ public class Utils {
     
     public static void removefrom_fft_station_name_set(String str) {
         fft_station_name_set.remove(str);
+    }
+    
+    
+    public static Map<String, Map<String, Raw_Data>> get_raw_data_map() {
+        return raw_data_map;
     }
     
     public static Map<String, Map<String, FFT_SnapShot>> get_selectedmap() {

@@ -88,16 +88,16 @@ public class MainApp extends Application {
         
         
         Utils.set_MainPath(System.getProperty("user.dir"));
-        loader = new FXMLLoader(getClass().getResource("/fxml/Main_bp.fxml"));
+        loader = new FXMLLoader(getClass().getResource("/fxml/Main.fxml"));
         root = loader.load();
         
         Scene scene = new Scene(root);
         scene.getStylesheets().add("/styles/Styles.css");
         //stage.setTitle("FFT tool for seismic by Department of Architecture NCKU - "+Utils.get_ProjectPath());
         if (Utils.get_ProjectPath() == null) {
-            stage.setTitle("FFT tool for seismic by Department of Architecture NCKU - Empty Project");
+            stage.setTitle("Seismic Tool by Department of Architecture NCKU - Empty Project");
         } else {
-            stage.setTitle("FFT tool for seismic by Department of Architecture NCKU - "+Utils.get_ProjectPath());
+            stage.setTitle("Seismic Tool by Department of Architecture NCKU - "+Utils.get_ProjectPath());
         }
         stage.setScene(scene);
         //stage.setResizable(false);

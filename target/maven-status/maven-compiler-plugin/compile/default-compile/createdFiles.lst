@@ -33,6 +33,7 @@ tools\Configs.class
 tools\Configs$1.class
 softpak\gdms_fft\MainApp.class
 softpak\gdms_fft\FX_Cancel_Controller.class
+softpak\gdms_fft\Raw_Data.class
 softpak\gdms_fft\FX_FreeField_Controller$1.class
 org\pujun\interp\RBF_thinplate.class
 softpak\gdms_fft\FX_Seismic_Controller$5.class
@@ -66,6 +67,7 @@ softpak\gdms_fft\FX_Main_Controller$Read_db_task.class
 org\pujun\interp\RBF_gauss.class
 tools\Kriging.class
 tools\ColoerSet.class
+softpak\gdms_fft\FX_Main_Controller$Read_raw_data_task.class
 tools\MathUtils.class
 softpak\gdms_fft\Interpolation_Result_Obj.class
 tools\Point.class

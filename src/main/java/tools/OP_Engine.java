@@ -172,11 +172,12 @@ public class OP_Engine implements Runnable{
         try {
             obj.executeUpdate();
             obj.close();
+            /*
             Platform.runLater(() -> {
                 Utils.check_logs_textarea();
                 mainController.get_logs_textarea().appendText("("+Utils.get_filequeue().size()+"): "+str);
                 mainController.get_logs_textarea().selectPositionCaret(mainController.get_logs_textarea().getLength());
-            });
+            });*/
         } catch (SQLException ex) {
             Utils.logger.fatal(ex);
         }

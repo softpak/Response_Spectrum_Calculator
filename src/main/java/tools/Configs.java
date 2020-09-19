@@ -34,6 +34,8 @@ public class Configs {
     public static double vs30_max = 0;
     public static double vs30_min = 0;
     public static Ellipsoid reference = Ellipsoid.WGS84;
+    public static String raw_prefix_db = "RAW_";
+    
     
     public static int map_type_2d_seismic_station = 0;
     public static int map_type_2d_seismic = 1;
